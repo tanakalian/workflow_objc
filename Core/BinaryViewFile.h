@@ -26,6 +26,7 @@ class BinaryViewFile : public ObjectiveNinja::AbstractFile {
 
 public:
     explicit BinaryViewFile(BinaryViewRef);
+    virtual ~BinaryViewFile() {}
 
     void seek(uint64_t) override;
 

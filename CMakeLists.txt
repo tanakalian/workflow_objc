@@ -67,27 +67,27 @@ set(PLUGIN_SOURCE
 # Used to enable some debugging actions, etc.
 option(DEV_MODE "Enable developer features" OFF)
 
-add_library(ObjectiveNinja SHARED ${PLUGIN_SOURCE})
-target_link_libraries(ObjectiveNinja ObjectiveNinjaCore binaryninjaapi)
-target_compile_features(ObjectiveNinja PRIVATE cxx_std_17 c_std_99)
-target_compile_definitions(ObjectiveNinja PRIVATE
+add_library(workflow_objc SHARED ${PLUGIN_SOURCE})
+target_link_libraries(workflow_objc ObjectiveNinjaCore binaryninjaapi)
+target_compile_features(workflow_objc PRIVATE cxx_std_17 c_std_99)
+target_compile_definitions(workflow_objc PRIVATE
   DEV_MODE=${DEV_MODE})
 
 # Library targets linking against the Binary Ninja API need to be compiled with
 # position-independent code on Linux.
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
   target_compile_options(ObjectiveNinjaCore PRIVATE "-fPIC")
-  target_compile_options(ObjectiveNinja PRIVATE "-fPIC")
+  target_compile_options(workflow_objc PRIVATE "-fPIC")
 endif()
 
 # Configure plugin output directory for internal builds, otherwise configure
 # plugin installation for public builds.
 if(BN_INTERNAL_BUILD)
-  set_target_properties(ObjectiveNinja PROPERTIES
+  set_target_properties(workflow_objc PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${BN_CORE_PLUGIN_DIR}
     RUNTIME_OUTPUT_DIRECTORY ${BN_CORE_PLUGIN_DIR})
 else()
-  bn_install_plugin(ObjectiveNinja)
+  bn_install_plugin(workflow_objc)
 endif()
 
 # Internal tools ---------------------------------------------------------------

@@ -61,10 +61,8 @@ void Commands::analyzeStructures(BinaryViewRef bv)
 
 void Commands::registerCommands()
 {
-#ifdef DEV_MODE
     BinaryNinja::PluginCommand::Register("Objective-C \\ Define Types",
         "", Commands::defineTypes);
-#endif
     BinaryNinja::PluginCommand::Register("Objective-C \\ Analyze Structures",
         "", Commands::analyzeStructures);
 }

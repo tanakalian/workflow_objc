@@ -7,7 +7,7 @@
 
 #pragma once
 
-#ifdef ONC_BN_SUPPORT
+#ifdef OAC_BN_SUPPORT
 
 #include "AbstractFile.h"
 

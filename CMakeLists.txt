@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 
-project(ObjectiveNinja)
+project(workflow_objc)
 
 # Add subdirectory for the Binary Ninja C++ API if performing a public build,
 # and skip linking against the UI library since it isn't needed for this plugin.
@@ -33,18 +33,17 @@ set(CORE_SOURCE
   Core/Analyzer.cpp
   Core/TypeParser.cpp)
 
-add_library(ObjectiveNinjaCore STATIC ${CORE_SOURCE})
-target_compile_features(ObjectiveNinjaCore PRIVATE cxx_std_17)
-target_include_directories(ObjectiveNinjaCore PUBLIC Include)
+add_library(objc_analysis_core STATIC ${CORE_SOURCE})
+target_compile_features(objc_analysis_core PRIVATE cxx_std_17)
 
 # Option to specify whether the core library should be built with support
 # modules for integrating with Binary Ninja. Enabled by default, but able to be
 # turned off so the core library can be built without the Binary Ninja
 # dependency; an alternative AbstractFile implementation will be needed.
-option(ONC_BN_SUPPORT "Build core library support for Binary Ninja" ON)
-if(ONC_BN_SUPPORT)
-  target_compile_definitions(ObjectiveNinjaCore PUBLIC ONC_BN_SUPPORT=1)
-  target_link_libraries(ObjectiveNinjaCore PRIVATE binaryninjaapi)
+option(OAC_BN_SUPPORT "Build core library support for Binary Ninja" ON)
+if(OAC_BN_SUPPORT)
+  target_compile_definitions(objc_analysis_core PUBLIC OAC_BN_SUPPORT=1)
+  target_link_libraries(objc_analysis_core PRIVATE binaryninjaapi)
 endif()
 
 # Binary Ninja plugin ----------------------------------------------------------
@@ -64,19 +63,14 @@ set(PLUGIN_SOURCE
   Workflow.h
   Workflow.cpp)
 
-# Used to enable some debugging actions, etc.
-option(DEV_MODE "Enable developer features" OFF)
-
 add_library(workflow_objc SHARED ${PLUGIN_SOURCE})
-target_link_libraries(workflow_objc ObjectiveNinjaCore binaryninjaapi)
+target_link_libraries(workflow_objc objc_analysis_core binaryninjaapi)
 target_compile_features(workflow_objc PRIVATE cxx_std_17 c_std_99)
-target_compile_definitions(workflow_objc PRIVATE
-  DEV_MODE=${DEV_MODE})
 
 # Library targets linking against the Binary Ninja API need to be compiled with
 # position-independent code on Linux.
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-  target_compile_options(ObjectiveNinjaCore PRIVATE "-fPIC")
+  target_compile_options(objc_analysis_core PRIVATE "-fPIC")
   target_compile_options(workflow_objc PRIVATE "-fPIC")
 endif()
 
@@ -94,13 +88,6 @@ endif()
 
 set(DUMP_INFO_SOURCE TestSuite/DumpInfo.cpp)
 
-add_executable(DumpInfo ${DUMP_INFO_SOURCE})
-target_link_libraries(DumpInfo PRIVATE ObjectiveNinjaCore binaryninjaapi)
-target_compile_features(DumpInfo PRIVATE cxx_std_17 c_std_99)
-
-# Extra targets ----------------------------------------------------------------
-
-add_custom_target(format
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-  COMMAND clang-format -i --style=WebKit
-  ${CORE_SOURCE} ${PLUGIN_SOURCE} ${DUMP_INFO_SOURCE})
+add_executable(objc_test_harness ${DUMP_INFO_SOURCE})
+target_link_libraries(objc_test_harness PRIVATE objc_analysis_core binaryninjaapi)
+target_compile_features(objc_test_harness PRIVATE cxx_std_17 c_std_99)

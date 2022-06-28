@@ -5,7 +5,7 @@
  * terms of the license can be found in the LICENSE.txt file.
  */
 
-#ifdef ONC_BN_SUPPORT
+#ifdef OAC_BN_SUPPORT
 
 #include "BinaryViewFile.h"
 

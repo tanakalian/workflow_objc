@@ -7,6 +7,7 @@
 
 #include "Commands.h"
 
+#include "Constants.h"
 #include "CustomTypes.h"
 #include "GlobalState.h"
 #include "InfoHandler.h"
@@ -45,12 +46,12 @@ void Commands::analyzeStructures(BinaryViewRef bv)
         info = ObjectiveNinja::AnalysisProvider::infoForFile(file);
         auto elapsed = Performance::elapsed<std::chrono::milliseconds>(start);
 
-        const auto log = BinaryNinja::LogRegistry::GetLogger("ObjectiveNinja");
+        const auto log = BinaryNinja::LogRegistry::GetLogger(PluginLoggerName);
         log->LogInfo("Structures analyzed in %lu ms", elapsed.count());
 
         InfoHandler::applyInfoToView(info, bv);
     } catch (...) {
-        const auto log = BinaryNinja::LogRegistry::GetLogger("ObjectiveNinja");
+        const auto log = BinaryNinja::LogRegistry::GetLogger(PluginLoggerName);
         log->LogError("Structure analysis failed; binary may be malformed.");
         log->LogError("Objective-C analysis will not be applied due to previous errors.");
     }
@@ -61,9 +62,9 @@ void Commands::analyzeStructures(BinaryViewRef bv)
 void Commands::registerCommands()
 {
 #ifdef DEV_MODE
-    BinaryNinja::PluginCommand::Register("Objective Ninja \\ Define Types",
+    BinaryNinja::PluginCommand::Register("Objective-C \\ Define Types",
         "", Commands::defineTypes);
 #endif
-    BinaryNinja::PluginCommand::Register("Objective Ninja \\ Analyze Structures",
+    BinaryNinja::PluginCommand::Register("Objective-C \\ Analyze Structures",
         "", Commands::analyzeStructures);
 }

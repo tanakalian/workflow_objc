@@ -6,6 +6,7 @@
  */
 
 #include "Commands.h"
+#include "Constants.h"
 #include "DataRenderers.h"
 #include "Workflow.h"
 
@@ -22,7 +23,7 @@ BINARYNINJAPLUGIN bool CorePluginInit()
     Workflow::registerActivities();
     Commands::registerCommands();
 
-    BinaryNinja::LogRegistry::CreateLogger("ObjectiveNinja");
+    BinaryNinja::LogRegistry::CreateLogger(PluginLoggerName);
 
     return true;
 }

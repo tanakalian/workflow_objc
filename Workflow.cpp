@@ -7,6 +7,7 @@
 
 #include "Workflow.h"
 
+#include "Constants.h"
 #include "CustomTypes.h"
 #include "GlobalState.h"
 #include "InfoHandler.h"
@@ -127,7 +128,7 @@ void Workflow::inlineMethodCalls(AnalysisContextRef ac)
     if (GlobalState::viewIsIgnored(bv))
         return;
 
-    const auto log = BinaryNinja::LogRegistry::GetLogger("ObjectiveNinja");
+    const auto log = BinaryNinja::LogRegistry::GetLogger(PluginLoggerName);
 
     // Ignore the view if it has an unsupported architecture.
     auto archName = arch->GetName();
@@ -156,7 +157,7 @@ void Workflow::inlineMethodCalls(AnalysisContextRef ac)
                 info = ObjectiveNinja::AnalysisProvider::infoForFile(file);
                 auto elapsed = Performance::elapsed<std::chrono::milliseconds>(start);
 
-                const auto log = BinaryNinja::LogRegistry::GetLogger("ObjectiveNinja");
+                const auto log = BinaryNinja::LogRegistry::GetLogger(PluginLoggerName);
                 log->LogInfo("Structures analyzed in %lu ms", elapsed.count());
 
                 InfoHandler::applyInfoToView(info, bv);

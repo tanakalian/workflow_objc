@@ -7,6 +7,7 @@
 
 #include "InfoHandler.h"
 
+#include "Constants.h"
 #include "CustomTypes.h"
 #include "Performance.h"
 
@@ -220,7 +221,7 @@ void InfoHandler::applyInfoToView(SharedAnalysisInfo info, BinaryViewRef bv)
 
     auto elapsed = Performance::elapsed<std::chrono::milliseconds>(start);
 
-    const auto log = BinaryNinja::LogRegistry::GetLogger("ObjectiveNinja");
+    const auto log = BinaryNinja::LogRegistry::GetLogger(PluginLoggerName);
     log->LogInfo("Analysis results applied in %lu ms", elapsed.count());
     log->LogInfo("Found %d classes, %d methods, %d selector references",
         info->classes.size(), totalMethods, info->selectorRefs.size());

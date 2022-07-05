@@ -1,110 +1,70 @@
-# Objective Ninja
+# Objective-C Workflow
 
-> by [@jonpalmisc](https://twitter.com/jonpalmisc)
+This is the Objective-C plugin that ships with Binary Ninja. It provides
+additional support for analyzing Objective-C binaries.
 
-Objective Ninja is a Binary Ninja plugin (and workflow) which provides numerous
-features to assist in reverse engineering Objective-C code.
+Some of the main features offered by this plugin are:
 
-*NOTICE: Objective Ninja is a work-in-progress. The important stuff works,
-but there are certainly areas for improvement. If you find it to be lacking or
-run into any bugs, please file an issue on GitHub.*
-
-## Features
-
-![Before and After Screenshot](Docs/Comparison.png)
-
-> Objective-C code before and after running the Objective Ninja workflow and
-> structure analysis.
-
-Objective Ninja is still in early development, but already has a handful of
-useful features:
-
-- **Method Call Cleanup.** When using the Objective Ninja workflow, calls to
-  `objc_msgSend` can be replaced with direct calls to the relevant method's
+- **Function Call Cleanup.** When using the Objective-C workflow, calls to
+  `objc_msgSend` can be replaced with direct calls to the relevant function's
   implementation.
 
-- **Function Name and Type Recovery.** Using class and method information
-  embedded in the binary, Objective Ninja can automatically apply names and type
-  information to functions for class methods.
+- **Name and Type Recovery.** Using runtime information embedded in the
+  binary, Binary Ninja can automatically apply names and type information to
+  Objective-C functions.
 
 - **Structure Markup.** Data variables are automatically created for Objective-C
   structures such as classes and method lists to enable easy navigation.
 
-- **Data Renderers.** Objective Ninja comes with custom data renderers for
-  common Objective-C types/patterns, such as tagged and (image-)relative
-  pointers.
+- **Data Renderers.** Formatting of Objective-C types such as tagged and/or
+  (image-)relative pointers is improved via custom data renderers.
 
-- **Improved CFString Handling.** CFStrings are analyzed; data variables are
-  created and automatically named to make dealing with CFStrings a bit more
-  pleasant.
+- **CFString Handling.** Data variables are automatically created for all
+  `CFString` instances present in the binary.
 
-### Core Library
+## Building
 
-Large parts of Objective Ninja's Objective-C analysis are contained in a
-separate library, referred to as the "core library". This library is a plain C++
-library and has no dependency on the Binary Ninja API. As such, it can be used
-independently outside of the Objective Ninja plugin.
-
-### Limitations
-
-Intel (`x86_64`) and 64-bit ARM (`arm64` or `arm64e`) are the only architectures
-supported; support for other architectures is not planned.
-
-## Build & Installation
-
-Objective Ninja is currently only offered in source code form; to use Objective
-Ninja, you will need to build it yourself. The good news is that building it
-isn't very difficult.
-
-Clone the Objective Ninja repository. The `master` branch should be reasonably
-stable, but if you're looking for (slightly) more stability, check out one of
-the release tags. Initialize the Binary Ninja API submodule, then run CMake and
-build:
+This plugin can be built and installed separately from Binary Ninja via the
+following commands:
 
 ```sh
-git clone https://github.com/jonpalmisc/ObjectiveNinja.git && cd ObjectiveNinja
+git clone https://github.com/Vector35/workflow_objc.git && cd workflow_objc
 git submodule update --init --recursive
 cmake -S . -B build -GNinja
-cmake --build build
+cmake --build build -t install
 ```
-
-Once complete, `libObjectiveNinja` will be available in the build folder; copy
-it to your Binary Ninja user plugins folder to install it. See the [Binary Ninja
-User Documentation](https://docs.binary.ninja/guide/plugins.html) if you aren't
-sure where your user plugins folder is.
-
-### Troubleshooting
-
-If you have Binary Ninja installed in a non-standard location, you may encounter
-an error that looks like this:
-
-```
-CMake Error at vendor/api/CMakeLists.txt:58 (find_library):
-  Could not find BN_CORE_LIBRARY using the following names: binaryninjacore,
-  libbinaryninjacore.so.1
-```
-
-In this case, you will likely have have to explicitly set the `BN_INSTALL_DIR`
-option when invoking CMake, done as follows:
-
-```sh
-cmake ... -DBN_INSTALL_DIR="BINARY_NINJA_INSTALL_PATH_HERE"
-```
-
-## Contributing
-
-Contributions in the form of issues and pull requests are welcome! For
-more information, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Credits
 
-Objective Ninja is made by [@jonpalmisc](https://twitter.com/jonpalmisc).
-However, others have made valuable contributions behind the scenes that aren't
-visible by looking at the Git history. Special thanks to
-[@noar](https://twitter.com/noarfromspace) and
-[@cynder](https://github.com/cxnder), for generously offering their time to help
-make sense of the Objective-C ABI and for sharing their knowledge.
+This plugin is a continuation of [Objective Ninja](https://github.com/jonpalmisc/ObjectiveNinja), originally made
+by [@jonpalmisc](https://twitter.com/jonpalmisc). The full terms of the
+Objective Ninja license are as follows:
 
-## License
+```
+Copyright (c) 2022 Jon Palmisciano
 
-Copyright &copy; 2022 Jon Palmisciano; licensed under the BSD 3-Clause license.
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+   may be used to endorse or promote products derived from this software without
+   specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```

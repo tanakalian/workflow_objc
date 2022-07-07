@@ -30,7 +30,7 @@ class GlobalState {
     /**
      * Get the ID for a view.
      */
-    static std::uintptr_t id(BinaryViewRef);
+    static BinaryViewID id(BinaryViewRef);
 
 public:
     /**

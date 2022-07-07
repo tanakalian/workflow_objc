@@ -13,9 +13,9 @@
 static std::unordered_map<BinaryViewID, SharedAnalysisInfo> g_analysisRecords;
 static std::set<BinaryViewID> g_ignoredViews;
 
-std::uintptr_t GlobalState::id(BinaryViewRef bv)
+BinaryViewID GlobalState::id(BinaryViewRef bv)
 {
-    return reinterpret_cast<uintptr_t>(bv->GetObject());
+    return bv->GetFile()->GetSessionId();
 }
 
 void GlobalState::storeAnalysisInfo(BinaryViewRef bv, SharedAnalysisInfo records)

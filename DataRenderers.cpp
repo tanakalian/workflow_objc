@@ -21,20 +21,14 @@ using namespace BinaryNinja;
  */
 BNInstructionTextTokenType tokenTypeForSymbol(Ref<Symbol> symbol)
 {
-    auto tokenType = CodeRelativeAddressToken;
-
     switch (symbol->GetType()) {
     case DataSymbol:
-        tokenType = DataSymbolToken;
-        break;
+        return DataSymbolToken;
     case FunctionSymbol:
-        tokenType = CodeSymbolToken;
-        break;
+        return CodeSymbolToken;
     default:
-        break;
+        return CodeRelativeAddressToken;
     }
-
-    return tokenType;
 }
 
 /**

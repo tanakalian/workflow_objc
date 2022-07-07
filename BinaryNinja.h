@@ -18,4 +18,4 @@ using TypeRef = BinaryNinja::Ref<BinaryNinja::Type>;
 using BinaryViewPtr = BinaryNinja::BinaryView*;
 using TypePtr = BinaryNinja::Type*;
 
-using BinaryViewID = std::uintptr_t;
+using BinaryViewID = std::size_t;

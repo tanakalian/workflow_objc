@@ -26,7 +26,7 @@ void Commands::analyzeStructures(BinaryViewRef bv)
     if (GlobalState::hasFlag(bv, Flag::DidRunWorkflow)
         || GlobalState::hasFlag(bv, Flag::DidRunStructureAnalysis)) {
         auto result = BinaryNinja::ShowMessageBox("Error",
-            "Structure analysis has already been performed fon this binary. "
+            "Structure analysis has already been performed on this binary. "
             "Repeated analysis may cause unexpected behavior.* Continue?\n\n"
             "*If you undid analysis, this message can be safely ignored.",
             BNMessageBoxButtonSet::YesNoButtonSet,

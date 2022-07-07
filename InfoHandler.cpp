@@ -12,6 +12,7 @@
 #include "Performance.h"
 
 #include <algorithm>
+#include <cinttypes>
 #include <regex>
 
 using namespace BinaryNinja;
@@ -73,6 +74,14 @@ void InfoHandler::applyMethodType(BinaryViewRef bv, const ObjectiveNinja::ClassI
 {
     auto selectorTokens = mi.selectorTokens();
     auto typeTokens = mi.decodedTypeTokens();
+
+    // For safety, ensure out-of-bounds indexing is not about to occur. This has
+    // never happened and likely won't ever happen, but crashing the product is
+    // generally undesirable, so it's better to be safe than sorry.
+    if (selectorTokens.size() > typeTokens.size()) {
+        LogWarn("Cannot apply method type to %" PRIx64 " due to selector/type token size mismatch.", mi.implAddress);
+        return;
+    }
 
     // Shorthand for formatting an individual "part" of the type signature.
     auto partForIndex = [selectorTokens, typeTokens](size_t i) {

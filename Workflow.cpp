@@ -222,17 +222,17 @@ void Workflow::inlineMethodCalls(AnalysisContextRef ac)
 }
 
 static constexpr auto WorkflowInfo = R"({
-  "title": "Objective Ninja",
+  "title": "Objective-C",
   "description": "Enhanced analysis for Objective-C code.",
   "capabilities": []
 })";
 
 void Workflow::registerActivities()
 {
-    const auto wf = BinaryNinja::Workflow::Instance()->Clone("Objective Ninja");
+    const auto wf = BinaryNinja::Workflow::Instance()->Clone("core.function.objectiveC");
     wf->RegisterActivity(new BinaryNinja::Activity(
-        ActivityID::InlineMethodCalls, &Workflow::inlineMethodCalls));
-    wf->Insert("core.function.translateTailCalls", ActivityID::InlineMethodCalls);
+        ActivityID::ResolveMethodCalls, &Workflow::inlineMethodCalls));
+    wf->Insert("core.function.translateTailCalls", ActivityID::ResolveMethodCalls);
 
     BinaryNinja::Workflow::RegisterWorkflow(wf, WorkflowInfo);
 }

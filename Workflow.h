@@ -14,7 +14,7 @@
  */
 namespace ActivityID {
 
-constexpr auto InlineMethodCalls = "objectiveNinja.function.inlineMethodCalls";
+constexpr auto ResolveMethodCalls = "core.function.objectiveC.resolveMethodCalls";
 
 }
 

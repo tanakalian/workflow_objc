@@ -83,11 +83,3 @@ if(BN_INTERNAL_BUILD)
 else()
   bn_install_plugin(workflow_objc)
 endif()
-
-# Internal tools ---------------------------------------------------------------
-
-set(DUMP_INFO_SOURCE TestSuite/DumpInfo.cpp)
-
-add_executable(objc_test_harness ${DUMP_INFO_SOURCE})
-target_link_libraries(objc_test_harness PRIVATE objc_analysis_core binaryninjaapi)
-target_compile_features(objc_test_harness PRIVATE cxx_std_17 c_std_99)

@@ -8,6 +8,8 @@
 #include "AnalysisInfo.h"
 #include "TypeParser.h"
 
+#include <sstream>
+
 namespace ObjectiveNinja {
 
 constexpr auto FlagsMask = 0xFFFF0000;
@@ -41,11 +43,7 @@ bool MethodListInfo::hasDirectSelectors() const
 
 std::string AnalysisInfo::dump() const
 {
-    nlohmann::json json;
-    json["classes"] = classes;
-    json["cfStrings"] = cfStrings;
-
-    return json.dump(2);
+    return "<unimplemented>";
 }
 
 }

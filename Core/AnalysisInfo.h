@@ -7,7 +7,9 @@
 
 #pragma once
 
-#include "../Vendor/ModernJSON/JSON.hpp"
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace ObjectiveNinja {
 
@@ -111,16 +113,4 @@ struct AnalysisInfo {
     std::string dump() const;
 };
 
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CFStringInfo, address, dataAddress, size)
-
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SelectorRefInfo, address, name, rawSelector,
-    nameAddress)
-
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MethodInfo, address, selector, type,
-    nameAddress, typeAddress, implAddress)
-
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MethodListInfo, address, flags, methods)
-
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ClassInfo, listPointer, address, dataAddress,
-    nameAddress, name, methodListAddress, methodList)
 }

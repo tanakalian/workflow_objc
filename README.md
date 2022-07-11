@@ -22,6 +22,8 @@ Some of the main features offered by this plugin are:
 - **CFString Handling.** Data variables are automatically created for all
   `CFString` instances present in the binary.
 
+For more details and usage instructions, see the [user guide](https://dev-docs.binary.ninja/guide/objectivec.html).
+
 ## Building
 
 This plugin can be built and installed separately from Binary Ninja via the

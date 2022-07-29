@@ -21,6 +21,12 @@ uint64_t AbstractFile::readLong(uint64_t offset)
     return readLong();
 }
 
+uint64_t AbstractFile::readPointer(uint64_t offset)
+{
+	seek(offset);
+	return readPointer();
+}
+
 std::string AbstractFile::readString(size_t maxLength)
 {
     std::string result;

@@ -10,6 +10,7 @@
 #include "Constants.h"
 #include "CustomTypes.h"
 #include "Performance.h"
+#include "Core/TypeParser.h"
 
 #include <algorithm>
 #include <cinttypes>
@@ -69,11 +70,31 @@ void InfoHandler::defineReference(BinaryViewRef bv, uint64_t from, uint64_t to)
     bv->AddUserDataReference(from, to);
 }
 
+QualifiedName InfoHandler::createClassType(BinaryViewRef bv, const ObjectiveNinja::ClassInfo& info, const ObjectiveNinja::IvarListInfo& vi)
+{
+	StructureBuilder classTypeBuilder;
+	for (const auto& ivar : vi.ivars)
+	{
+		auto encodedType = ObjectiveNinja::TypeParser::parseEncodedType(bv->GetDefaultArchitecture(), ivar.types).front();
+		Ref<Type> type = encodedType.type.has_value() ? encodedType.type.value() : Type::NamedType(bv, encodedType.name);
+		classTypeBuilder.AddMemberAtOffset(type, ivar.name, ivar.offset);
+	}
+	auto classTypeStruct = classTypeBuilder.Finalize();
+	QualifiedName classTypeName = "class_" + std::string(info.name);
+	std::string classTypeId = Type::GenerateAutoTypeId("objc", classTypeName);
+	Ref<Type> classType = Type::StructureType(classTypeStruct);
+	QualifiedName classQualName = bv->DefineType(classTypeId, classTypeName, classType);
+
+	bv->DefineUserType(info.name, Type::PointerType(bv->GetDefaultArchitecture(), classType));
+
+	return info.name;
+}
+
 void InfoHandler::applyMethodType(BinaryViewRef bv, const ObjectiveNinja::ClassInfo& ci,
-    const ObjectiveNinja::MethodInfo& mi)
+	const BinaryNinja::QualifiedName& classTypeName, const ObjectiveNinja::MethodInfo& mi)
 {
     auto selectorTokens = mi.selectorTokens();
-    auto typeTokens = mi.decodedTypeTokens();
+    auto typeTokens = mi.decodedTypeTokens(bv->GetDefaultArchitecture());
 
     // For safety, ensure out-of-bounds indexing is not about to occur. This has
     // never happened and likely won't ever happen, but crashing the product is
@@ -83,57 +104,41 @@ void InfoHandler::applyMethodType(BinaryViewRef bv, const ObjectiveNinja::ClassI
         return;
     }
 
-    // Shorthand for formatting an individual "part" of the type signature.
-    auto partForIndex = [selectorTokens, typeTokens](size_t i) {
-        std::string argName;
+	Ref<Type> retType;
 
-        // Indices 0, 1, and 2 are the function return type, self parameter, and
-        // selector parameter, respectively. Indices 3+ are the actual
-        // arguments to the function.
-        if (i == 0)
-            argName = "";
-        else if (i == 1)
-            argName = "self";
-        else if (i == 2)
-            argName = "sel";
-        else if (i - 3 < selectorTokens.size())
-            argName = selectorTokens[i - 3];
+	std::vector<BinaryNinja::FunctionParameter> params;
+	bool varArg = false;
+	auto cc = bv->GetDefaultPlatform()->GetDefaultCallingConvention();
 
-        return typeTokens[i] + " " + argName;
-    };
+	for (size_t i = 0; i < typeTokens.size(); ++i) {
+		Ref<Type> type = typeTokens[i].type.has_value() ? typeTokens[i].type.value() : Type::NamedType(bv, typeTokens[i].name);
+		if (i == 0)
+			retType = type;
+		else if (i == 1)
+		{
+			params.push_back({"self",
+				BinaryNinja::Type::NamedType(bv, ci.name),
+				true,
+				BinaryNinja::Variable()});
+		}
+		else
+		{
+			std::string argName;
+			if (i == 2)
+				argName = "sel";
+			else if (i - 3 < selectorTokens.size())
+				argName = selectorTokens[i - 3];
 
-    // Build the type string for the method.
-    std::string typeString;
-    for (size_t i = 0; i < typeTokens.size(); ++i) {
-        std::string suffix;
-        auto part = partForIndex(i);
+			params.push_back({argName, typeTokens[i].type.has_value() ? typeTokens[i].type.value() : Type::NamedType(bv, typeTokens[i].name), true, BinaryNinja::Variable()});
+		}
+	}
 
-        // The underscore being used as the function name here is critically
-        // important as Clang will not parse the type string correctly---unlike
-        // the old type parser---if there is no function name. The underscore
-        // itself isn't special, and will not end up being used as the function
-        // name in either case.
-        if (i == 0)
-            suffix = " _(";
-        else if (i == typeTokens.size() - 1)
-            suffix = ")";
-        else
-            suffix = ", ";
+	auto functionType = BinaryNinja::Type::FunctionType(retType, cc, params, varArg);
 
-        typeString += part + suffix;
-    }
-    typeString += ";";
+	// Search for the method's implementation function; apply the type if found.
+	if (auto f = bv->GetAnalysisFunction(bv->GetDefaultPlatform(), mi.implAddress))
+		f->SetUserType(functionType);
 
-    std::string errors;
-    TypeParserResult tpResult;
-    auto ok = bv->ParseTypesFromSource(typeString, {}, {}, tpResult, errors);
-    if (ok && !tpResult.functions.empty()) {
-        auto functionType = tpResult.functions[0].type;
-
-        // Search for the method's implementation function; apply the type if found.
-        if (auto f = bv->GetAnalysisFunction(bv->GetDefaultPlatform(), mi.implAddress))
-            f->SetUserType(functionType);
-    }
 
     auto name = "[" + ci.name + " " + mi.selector + "]";
     defineSymbol(bv, mi.implAddress, name, "", FunctionSymbol);
@@ -152,6 +157,8 @@ void InfoHandler::applyInfoToView(SharedAnalysisInfo info, BinaryViewRef bv)
     auto classType = namedType(bv, CustomTypes::Class);
     auto classDataType = namedType(bv, CustomTypes::ClassRO);
     auto methodListType = namedType(bv, CustomTypes::MethodList);
+	auto ivarListType = namedType(bv, CustomTypes::IvarList);
+	auto ivarType = namedType(bv, CustomTypes::Ivar);
 
     // Create data variables and symbols for all CFString instances.
     for (const auto& csi : info->cfStrings) {
@@ -197,6 +204,8 @@ void InfoHandler::applyInfoToView(SharedAnalysisInfo info, BinaryViewRef bv)
         defineReference(bv, ci.dataAddress, ci.nameAddress);
         defineReference(bv, ci.dataAddress, ci.methodListAddress);
 
+		auto methodSelfType = createClassType(bv, ci, ci.ivarList);
+
         if (ci.methodList.address == 0 || ci.methodList.methods.empty())
             continue;
 
@@ -217,11 +226,16 @@ void InfoHandler::applyInfoToView(SharedAnalysisInfo info, BinaryViewRef bv)
             defineReference(bv, mi.address, mi.typeAddress);
             defineReference(bv, mi.address, mi.implAddress);
 
-            applyMethodType(bv, ci, mi);
+            applyMethodType(bv, ci, methodSelfType, mi);
         }
+
+		for (const auto& ii : ci.ivarList.ivars) {
+			defineVariable(bv, ii.address, ivarType);
+		}
 
         // Create a data variable and symbol for the method list header.
         defineVariable(bv, ci.methodListAddress, methodListType);
+		defineVariable(bv, ci.ivarListAddress, ivarListType);
         defineSymbol(bv, ci.methodListAddress, ci.name, "ml_");
     }
 

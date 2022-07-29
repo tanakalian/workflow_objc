@@ -22,11 +22,11 @@ void CFStringAnalyzer::run()
     if (sectionStart == 0 || sectionEnd == 0)
         return;
 
-    for (auto address = sectionStart; address < sectionEnd; address += 0x20) {
+    for (auto address = sectionStart; address < sectionEnd; address += m_file->pointerSize() * 4) {
         CFStringInfo cfString;
         cfString.address = address;
-        cfString.dataAddress = arp(m_file->readLong(address + 0x10));
-        cfString.size = m_file->readLong(address + 0x18);
+        cfString.dataAddress = arp(m_file->readPointer(address + (m_file->pointerSize() * 2)));
+        cfString.size = m_file->readPointer(address + (m_file->pointerSize() * 3));
 
         m_info->cfStrings.emplace_back(cfString);
     }

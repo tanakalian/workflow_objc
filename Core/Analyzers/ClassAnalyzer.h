@@ -19,6 +19,7 @@ class ClassAnalyzer : public Analyzer {
      * Analyze a method list.
      */
     MethodListInfo analyzeMethodList(uint64_t);
+	IvarListInfo analyzeIvarList(uint64_t);
 
 public:
     ClassAnalyzer(SharedAnalysisInfo, SharedAbstractFile);

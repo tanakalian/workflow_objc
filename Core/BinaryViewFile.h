@@ -22,6 +22,7 @@ namespace ObjectiveNinja {
  */
 class BinaryViewFile : public ObjectiveNinja::AbstractFile {
     BinaryViewRef m_bv;
+	uint64_t m_ptrSize;
     BinaryNinja::BinaryReader m_reader;
 
 public:
@@ -33,10 +34,12 @@ public:
     uint8_t readByte() override;
     uint32_t readInt() override;
     uint64_t readLong() override;
+	uint64_t readPointer() override;
 
     uint64_t imageBase() const override;
     uint64_t sectionStart(const std::string& name) const override;
     uint64_t sectionEnd(const std::string& name) const override;
+	uint64_t pointerSize() const override;
 };
 
 }

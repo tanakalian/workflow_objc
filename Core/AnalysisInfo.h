@@ -11,6 +11,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include "TypeParser.h"
 
 namespace ObjectiveNinja {
 
@@ -58,7 +59,7 @@ struct MethodInfo {
     /**
      * Get the method's type as series of C-style tokens.
      */
-    std::vector<std::string> decodedTypeTokens() const;
+    std::vector<ParsedType> decodedTypeTokens(BinaryNinja::Ref<BinaryNinja::Architecture> arch) const;
 };
 
 /**
@@ -80,6 +81,30 @@ struct MethodListInfo {
     bool hasDirectSelectors() const;
 };
 
+struct IvarInfo
+{
+	uint64_t address = {};
+
+	uint32_t offset;
+	std::string name;
+	std::string types;
+
+	uint64_t offsetAddress {};
+	uint64_t nameAddress {};
+	uint64_t typesAddress {};
+	uint32_t size {};
+};
+
+/**
+ * A description of an Objective-C ivar list
+ */
+struct IvarListInfo {
+	uint64_t address {};
+
+	uint32_t count {};
+	std::vector<IvarInfo> ivars {};
+};
+
 /**
  * A description of an Objective-C class.
  */
@@ -88,11 +113,13 @@ struct ClassInfo {
 
     std::string name {};
     MethodListInfo methodList {};
+	IvarListInfo ivarList {};
 
     uint64_t listPointer {};
     uint64_t dataAddress {};
     uint64_t nameAddress {};
     uint64_t methodListAddress {};
+	uint64_t ivarListAddress {};
 };
 
 /**
@@ -103,6 +130,7 @@ struct ClassInfo {
  * analysis should be stored here, ideally in the form of other *Info structs.
  */
 struct AnalysisInfo {
+
     std::vector<CFStringInfo> cfStrings {};
 
     std::vector<SharedSelectorRefInfo> selectorRefs {};

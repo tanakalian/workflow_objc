@@ -28,6 +28,8 @@ const std::string Method = "objc_method_t";
 const std::string MethodListEntry = "objc_method_entry_t";
 const std::string Class = "objc_class_t";
 const std::string ClassRO = "objc_class_ro_t";
+const std::string Ivar = "objc_ivar_t";
+const std::string IvarList = "objc_ivar_list_t";
 
 /**
  * Define all Objective-C-related types for a view.

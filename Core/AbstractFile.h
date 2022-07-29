@@ -51,6 +51,17 @@ public:
      */
     uint64_t readLong(uint64_t offset);
 
+	/**
+	 * Read a pointer (based on the current arch's address width) at the current offset and advance the offset
+	 * by that width.
+	 */
+	virtual uint64_t readPointer() = 0;
+
+	/**
+	 * Read a pointer (based on the current arch's address width) and advance the offset by that width.
+	 */
+	uint64_t readPointer(uint64_t address);
+
     /**
      * Read a string starting at the current reader offset. If no max length is
      * specified, a null-terminated string will be read.
@@ -77,6 +88,11 @@ public:
      * Get the offset corresponding to the end of the given section.
      */
     virtual uint64_t sectionEnd(const std::string&) const = 0;
+
+	/**
+	 * Pointer size within this current file, if known.
+	 */
+	virtual uint64_t pointerSize() const = 0;
 };
 
 }

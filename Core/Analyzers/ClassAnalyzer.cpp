@@ -22,7 +22,7 @@ MethodListInfo ClassAnalyzer::analyzeMethodList(uint64_t address)
     mli.flags = m_file->readInt(mli.address);
 
     auto methodCount = m_file->readInt(mli.address + 0x4);
-    auto methodSize = mli.hasRelativeOffsets() ? 12 : 24;
+    auto methodSize = mli.hasRelativeOffsets() ? 12 : (3 * m_file->pointerSize());
 
     for (unsigned i = 0; i < methodCount; ++i) {
         MethodInfo mi;
@@ -35,9 +35,11 @@ MethodListInfo ClassAnalyzer::analyzeMethodList(uint64_t address)
             mi.typeAddress = mi.address + 4 + static_cast<int32_t>(m_file->readInt());
             mi.implAddress = mi.address + 8 + static_cast<int32_t>(m_file->readInt());
         } else {
-            mi.nameAddress = arp(m_file->readLong());
-            mi.typeAddress = arp(m_file->readLong());
-            mi.implAddress = arp(m_file->readLong());
+            mi.nameAddress = arp(m_file->readPointer());
+            mi.typeAddress = arp(m_file->readPointer());
+            mi.implAddress = arp(m_file->readPointer());
+			// mask out armv7+thumb2 branch and exchange swap bit
+			mi.implAddress &= ~0b1;
         }
 
         if (!mli.hasRelativeOffsets() || mli.hasDirectSelectors()) {
@@ -57,6 +59,39 @@ MethodListInfo ClassAnalyzer::analyzeMethodList(uint64_t address)
     return mli;
 }
 
+IvarListInfo ClassAnalyzer::analyzeIvarList(uint64_t address)
+{
+	IvarListInfo ili;
+	ili.address = address;
+	auto ivarCount = m_file->readInt(ili.address + 4);
+
+	ili.ivars.reserve(ivarCount);
+
+	auto ivarSize = m_file->pointerSize() * 3 + 8;
+
+	for (unsigned i = 0; i < ivarCount; ++i)
+	{
+		IvarInfo ii;
+		ii.address = ili.address + 8 + (i * ivarSize);
+
+		m_file->seek(ii.address);
+
+		ii.offsetAddress = arp(m_file->readPointer());
+		ii.nameAddress = arp(m_file->readPointer());
+		ii.typesAddress = arp(m_file->readPointer());
+		m_file->readInt();
+		ii.size = m_file->readInt();
+
+		ii.offset = m_file->readInt(ii.offsetAddress);
+		ii.name = m_file->readStringAt(ii.nameAddress);
+		ii.types = m_file->readStringAt(ii.typesAddress);
+
+		ili.ivars.push_back(ii);
+	}
+
+	return ili;
+}
+
 void ClassAnalyzer::run()
 {
     const auto sectionStart = m_file->sectionStart("__objc_classlist");
@@ -67,20 +102,34 @@ void ClassAnalyzer::run()
     for (auto address = sectionStart; address < sectionEnd; address += 8) {
         ClassInfo ci;
         ci.listPointer = address;
-        ci.address = arp(m_file->readLong(address));
-        ci.dataAddress = arp(m_file->readLong(ci.address + 0x20));
+        ci.address = arp(m_file->readPointer(address));
+
+		int pointerSize = m_file->pointerSize();
+
+		// dataAddress is class_ro
+        ci.dataAddress = arp(m_file->readPointer(ci.address + (4 * pointerSize)));
 
         // Sometimes the lower two bits of the data address are used as flags
         // for Swift/Objective-C classes. They should be ignored, unless you
         // want incorrect analysis...
         ci.dataAddress &= ~ABI::FastPointerDataMask;
 
-        ci.nameAddress = arp(m_file->readLong(ci.dataAddress + 0x18));
+		// kat: core desperately needs a 'load pre-defined struct from addr' ;_;
+		int RO_PTR_START = pointerSize == 8 ? 16 : 12;
+		int RO_NAME_OFF_FROM_PTR_START = RO_PTR_START + pointerSize * 1;
+		int RO_METH_OFF_FROM_PTR_START = RO_PTR_START + pointerSize * 2;
+		int RO_IVAR_OFF_FROM_PTR_START = RO_PTR_START + pointerSize * 4;
+
+        ci.nameAddress = arp(m_file->readPointer(ci.dataAddress + RO_NAME_OFF_FROM_PTR_START));
         ci.name = m_file->readStringAt(ci.nameAddress);
 
-        ci.methodListAddress = arp(m_file->readLong(ci.dataAddress + 0x20));
+        ci.methodListAddress = arp(m_file->readPointer(ci.dataAddress + RO_METH_OFF_FROM_PTR_START));
         if (ci.methodListAddress)
             ci.methodList = analyzeMethodList(ci.methodListAddress);
+
+		ci.ivarListAddress = arp(m_file->readPointer(ci.dataAddress + RO_IVAR_OFF_FROM_PTR_START));
+		if (ci.ivarListAddress)
+			ci.ivarList = analyzeIvarList(ci.ivarListAddress);
 
         m_info->classes.emplace_back(ci);
     }

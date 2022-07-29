@@ -26,9 +26,9 @@ std::vector<std::string> MethodInfo::selectorTokens() const
     return result;
 }
 
-std::vector<std::string> MethodInfo::decodedTypeTokens() const
+std::vector<ParsedType> MethodInfo::decodedTypeTokens(BinaryNinja::Ref<BinaryNinja::Architecture> arch) const
 {
-    return TypeParser::parseEncodedType(type);
+    return TypeParser::parseEncodedType(arch, type);
 }
 
 bool MethodListInfo::hasRelativeOffsets() const

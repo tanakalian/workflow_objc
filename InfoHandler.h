@@ -14,13 +14,15 @@
 using SharedAnalysisInfo = std::shared_ptr<ObjectiveNinja::AnalysisInfo>;
 
 /**
- * Utility class for applying collected AnalysisInfo to a database.
- *
- * InfoHandler is meant to be used after all analyzers intended to run on a
- * database have finished. The resulting AnalysisInfo will then be used to
- * create data variables, symbols, etc. in the database.
- */
+  * Utility class for applying collected AnalysisInfo to a database.
+  *
+  * InfoHandler is meant to be used after all analyzers intended to run on a
+  * database have finished. The resulting AnalysisInfo will then be used to
+  * create data variables, symbols, etc. in the database.
+  */
+
 class InfoHandler {
+
     /**
      * Sanitize a string by searching for series of alphanumeric characters and
      * concatenating the matches. The input string will first be truncated.
@@ -60,11 +62,13 @@ class InfoHandler {
      */
     static inline void defineReference(BinaryViewRef bv, uint64_t from, uint64_t to);
 
+	static BinaryNinja::QualifiedName createClassType(BinaryViewRef, const ObjectiveNinja::ClassInfo&, const ObjectiveNinja::IvarListInfo&);
+
     /**
      * Create a symbol and apply return/argument types for a method.
      */
     static void applyMethodType(BinaryViewRef, const ObjectiveNinja::ClassInfo&,
-        const ObjectiveNinja::MethodInfo&);
+		const BinaryNinja::QualifiedName&, const ObjectiveNinja::MethodInfo&);
 
 public:
     /**

@@ -11,39 +11,42 @@
 
 namespace ObjectiveNinja {
 
-static const std::map<char, std::string> TypeEncodingMap = {
-    { 'v', "void" },
-    { 'c', "char" },
-    { 's', "short" },
-    { 'i', "int" },
-    { 'l', "long" },
-    { 'C', "unsigned char" },
-    { 'S', "unsigned short" },
-    { 'I', "unsigned int" },
-    { 'L', "unsigned long" },
-    { 'f', "float" },
-    { 'A', "uint8_t" },
-    { 'b', "BOOL" },
-    { 'B', "BOOL" },
+static const std::map<char, std::pair<std::string, std::optional<BinaryNinja::Ref<BinaryNinja::Type>>>> TypeEncodingMap = {
+    { 'v', {"void", BinaryNinja::Type::VoidType()}},
+    { 'c', {"char", BinaryNinja::Type::IntegerType(1, true)}},
+    { 's', {"short", BinaryNinja::Type::IntegerType(2, true)}},
+    { 'i', {"int", BinaryNinja::Type::IntegerType(4, true)}},
+    { 'l', {"long", BinaryNinja::Type::IntegerType(8, true)}},
+    { 'C', {"unsigned char", BinaryNinja::Type::IntegerType(1, false)}},
+    { 'S', {"unsigned short", BinaryNinja::Type::IntegerType(2, false)}},
+    { 'I', {"unsigned int", BinaryNinja::Type::IntegerType(4, false)}},
+    { 'L', {"unsigned long", BinaryNinja::Type::IntegerType(8, false)}},
+    { 'f', {"float", BinaryNinja::Type::FloatType(4)}},
+    { 'A', {"uint8_t", BinaryNinja::Type::IntegerType(1, false)}},
+    { 'b', {"BOOL", BinaryNinja::Type::BoolType()}},
+    { 'B', {"BOOL", BinaryNinja::Type::BoolType()} },
 
-    { 'q', "NSInteger" },
-    { 'Q', "NSUInteger" },
-    { 'd', "CGFloat" },
-    { '*', "char *" },
+    { 'q', {"NSInteger", std::nullopt}},
+    { 'Q', {"NSUInteger", std::nullopt}},
+    { 'd', {"CGFloat", std::nullopt}},
+    { '*', {"char *", BinaryNinja::Type::PointerType(8, BinaryNinja::Type::IntegerType(1, false))}},
 
-    { '@', "id" },
-    { ':', "SEL" },
-    { '#', "objc_class_t" },
+    { '@', {"id", std::nullopt} },
+    { ':', {"SEL", std::nullopt} },
+    { '#', {"objc_class_t", std::nullopt} },
 
-    { '?', "void*" },
-    { 'T', "void*" },
+    { '?', {"void*", BinaryNinja::Type::PointerType(8, BinaryNinja::Type::IntegerType(1, false))} },
+    { 'T', {"void*", BinaryNinja::Type::PointerType(8, BinaryNinja::Type::IntegerType(1, false))} },
 };
 
-std::vector<std::string> TypeParser::parseEncodedType(const std::string& encodedType)
+std::vector<ParsedType> TypeParser::parseEncodedType(BinaryNinja::Ref<BinaryNinja::Architecture> arch, const std::string& encodedType)
 {
-    std::vector<std::string> result;
+    std::vector<ParsedType> result;
 
     for (size_t i = 0; i < encodedType.size(); ++i) {
+
+		ParsedType type;
+
         char c = encodedType[i];
 
         // Argument frame size and offset specifiers aren't relevant here; they
@@ -52,17 +55,31 @@ std::vector<std::string> TypeParser::parseEncodedType(const std::string& encoded
             continue;
 
         if (TypeEncodingMap.count(c)) {
-            result.emplace_back(TypeEncodingMap.at(c));
+			type.encodedKind = PredefinedType;
+			type.name = TypeEncodingMap.at(c).first;
+			type.dependency = std::nullopt;
+			type.type = TypeEncodingMap.at(c).second;
+			if (type.type.has_value() && type.type.value()->GetClass() == PointerTypeClass)
+				type.type = BinaryNinja::Type::PointerType(arch, type.type.value()->GetChildType());
+            result.push_back(type);
             continue;
         }
 
         // (Partially) handle quoted type names.
         if (c == '"') {
+			std::string typeName;
             while (encodedType[i] != '"')
-                i++;
+			{
+				typeName.push_back(encodedType[i]);
+				i++;
+			}
 
-            // TODO: Emit real type names.
-            result.emplace_back("void*");
+			// TODO: Emit real type names.
+			type.encodedKind = NamedType;
+			type.name = typeName;
+			type.dependency = typeName;
+			type.type = BinaryNinja::Type::PointerType(arch, BinaryNinja::Type::VoidType());
+            result.push_back(type);
             continue;
         }
 
@@ -80,7 +97,11 @@ std::vector<std::string> TypeParser::parseEncodedType(const std::string& encoded
             }
 
             // TODO: Emit real struct types.
-            result.emplace_back("void*");
+			type.encodedKind = StructType;
+			type.name = "void*";
+			type.dependency = std::nullopt;
+			type.type = BinaryNinja::Type::PointerType(arch, BinaryNinja::Type::VoidType());
+            result.push_back(type);
             continue;
         }
 

@@ -15,6 +15,16 @@ BinaryViewFile::BinaryViewFile(BinaryViewRef bv)
     : m_bv(bv)
     , m_reader(BinaryNinja::BinaryReader(bv))
 {
+	m_ptrSize = bv->GetAddressSize();
+}
+
+uint64_t BinaryViewFile::readPointer()
+{
+	if (m_ptrSize == 8)
+		return readLong();
+	else if (m_ptrSize == 4)
+		return readInt();
+	return readLong();
 }
 
 void BinaryViewFile::seek(uint64_t address)
@@ -58,6 +68,11 @@ uint64_t BinaryViewFile::sectionEnd(const std::string& name) const
         return 0;
 
     return section->GetStart() + section->GetLength();
+}
+
+uint64_t BinaryViewFile::pointerSize() const
+{
+	return m_ptrSize;
 }
 
 }

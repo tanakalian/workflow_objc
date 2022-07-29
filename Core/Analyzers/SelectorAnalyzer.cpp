@@ -17,15 +17,17 @@ SelectorAnalyzer::SelectorAnalyzer(SharedAnalysisInfo info,
 
 void SelectorAnalyzer::run()
 {
+
     const auto sectionStart = m_file->sectionStart("__objc_selrefs");
     const auto sectionEnd = m_file->sectionEnd("__objc_selrefs");
+
     if (sectionStart == 0 || sectionEnd == 0)
         return;
 
     for (auto address = sectionStart; address < sectionEnd; address += 0x8) {
         auto ssri = std::make_shared<SelectorRefInfo>();
         ssri->address = address;
-        ssri->rawSelector = m_file->readLong(address);
+        ssri->rawSelector = m_file->readPointer(address);
         ssri->nameAddress = arp(ssri->rawSelector);
         ssri->name = m_file->readStringAt(ssri->nameAddress);
 

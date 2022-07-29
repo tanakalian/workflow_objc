@@ -9,8 +9,23 @@
 
 #include <string>
 #include <vector>
+#include <optional>
+#include <binaryninjaapi.h>
 
 namespace ObjectiveNinja {
+
+enum ParsedTypeType {
+	PredefinedType,
+	NamedType,
+	StructType
+};
+
+struct ParsedType {
+	std::string name;
+	ParsedTypeType encodedKind;
+	std::optional<BinaryNinja::Ref<BinaryNinja::Type>> type;
+	std::optional<std::string> dependency;
+};
 
 /**
  * Parser for Objective-C type strings.
@@ -20,7 +35,7 @@ public:
     /**
      * Parse an encoded type string.
      */
-    static std::vector<std::string> parseEncodedType(const std::string&);
+    static std::vector<ParsedType> parseEncodedType(BinaryNinja::Ref<BinaryNinja::Architecture> arch, const std::string&);
 };
 
 }

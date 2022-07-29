@@ -33,7 +33,8 @@ std::set<uint64_t> Workflow::findMsgSendFunctions(BinaryViewRef bv)
     const auto stubsSection = bv->GetSectionByName("__stubs");
     const auto authGotSection = bv->GetSectionByName("__auth_got");
     const auto gotSection = bv->GetSectionByName("__got");
-    const auto laSymbolPtrSection = bv->GetSectionByName("__la_symbol_ptr");
+	const auto laSymbolPtrSection = bv->GetSectionByName("__la_symbol_ptr");
+	const auto nlSymbolPtrSection = bv->GetSectionByName("__nl_symbol_ptr"); // armv7
 
     // Shorthand to check if a symbol lies in a given section.
     auto sectionContains = [](SectionRef section, SymbolRef symbol) {
@@ -67,8 +68,10 @@ std::set<uint64_t> Workflow::findMsgSendFunctions(BinaryViewRef bv)
             || (stubsSection && sectionContains(stubsSection, c))
             || (authGotSection && sectionContains(authGotSection, c))
             || (gotSection && sectionContains(gotSection, c))
-            || (laSymbolPtrSection && sectionContains(laSymbolPtrSection, c)))
+			|| (laSymbolPtrSection && sectionContains(laSymbolPtrSection, c))
+			|| (nlSymbolPtrSection && sectionContains(nlSymbolPtrSection, c)))
             results.insert(c->GetAddress());
+
     }
 
     return results;
@@ -132,7 +135,7 @@ void Workflow::inlineMethodCalls(AnalysisContextRef ac)
 
     // Ignore the view if it has an unsupported architecture.
     auto archName = arch->GetName();
-    if (archName != "aarch64" && archName != "x86_64") {
+    if (archName != "aarch64" && archName != "x86_64" && archName != "armv7" && archName != "thumb2") {
         log->LogError("Architecture '%s' is not supported", archName.c_str());
         GlobalState::addIgnoredView(bv);
         return;
@@ -161,7 +164,37 @@ void Workflow::inlineMethodCalls(AnalysisContextRef ac)
                 log->LogInfo("Structures analyzed in %lu ms", elapsed.count());
 
                 InfoHandler::applyInfoToView(info, bv);
-            } catch (...) {
+
+				const auto msgSendFunctions = findMsgSendFunctions(bv);
+				for (auto addr : msgSendFunctions)
+				{
+					BinaryNinja::QualifiedNameAndType nameAndType;
+					std::string errors;
+					std::set<BinaryNinja::QualifiedName> typesAllowRedefinition;
+
+					// void *
+					auto retType = BinaryNinja::Type::PointerType(bv->GetAddressSize(), BinaryNinja::Type::VoidType());
+
+					std::vector<BinaryNinja::FunctionParameter> params;
+					bool varArg = true;
+					auto cc = bv->GetDefaultPlatform()->GetDefaultCallingConvention();
+
+					params.push_back({"self",
+						BinaryNinja::Type::NamedType(bv, {"id"}),
+						true,
+						BinaryNinja::Variable()});
+					params.push_back({"sel",
+						BinaryNinja::Type::PointerType(bv->GetAddressSize(), BinaryNinja::Type::IntegerType(1, false)),
+						true,
+						BinaryNinja::Variable()});
+
+					auto funcType = BinaryNinja::Type::FunctionType(retType, cc, params, varArg);
+
+					bv->DefineDataVariable(addr, BinaryNinja::Type::PointerType(bv->GetDefaultArchitecture(), funcType));
+				}
+            }
+			catch (...) {
+				// kat: lldb command if you're trying to figure out what hits this: `br s -n __cxa_throw`
                 log->LogError("Structure analysis failed; binary may be malformed.");
                 log->LogError("Objective-C analysis will not be applied due to previous errors.");
             }

@@ -93,7 +93,7 @@ void Workflow::rewriteMethodCall(LLILFunctionRef ssa, size_t insnIndex)
     // binary. If this is the case, there are no meaningful changes that can be
     // made to the IL, and the operation should be aborted.
     const auto info = GlobalState::analysisInfo(bv);
-    if (!info->selectorRefsByKey.count(rawSelector))
+    if (!info || !info->selectorRefsByKey.count(rawSelector))
         return;
     const auto selectorRef = info->selectorRefsByKey[rawSelector];
 

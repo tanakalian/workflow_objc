@@ -131,9 +131,19 @@ void Workflow::inlineMethodCalls(AnalysisContextRef ac)
     const auto log = BinaryNinja::LogRegistry::GetLogger(PluginLoggerName);
 
     // Ignore the view if it has an unsupported architecture.
-    auto archName = arch->GetName();
-    if (archName != "aarch64" && archName != "x86_64") {
-        log->LogError("Architecture '%s' is not supported", archName.c_str());
+    //
+    // The reasoning for querying the default architecture here rather than the
+    // architecture of the function being analyzed is that the view needs to
+    // have a default architecture for the Objective-C runtime types to be
+    // defined successfully.
+    auto defaultArch = bv->GetDefaultArchitecture();
+    auto defaultArchName = defaultArch ? defaultArch->GetName() : "";
+    if (defaultArchName != "aarch64" && defaultArchName != "x86_64") {
+        if (!defaultArch)
+            log->LogError("View must have a default architecture.");
+        else
+            log->LogError("Architecture '%s' is not supported", defaultArchName.c_str());
+
         GlobalState::addIgnoredView(bv);
         return;
     }

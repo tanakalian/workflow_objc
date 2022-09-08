@@ -95,6 +95,11 @@ struct ClassInfo {
     uint64_t methodListAddress {};
 };
 
+struct ClassRefInfo {
+    uint64_t address;
+    uint64_t referencedAddress;
+};
+
 /**
  * Analysis info storage.
  *
@@ -104,6 +109,7 @@ struct ClassInfo {
  */
 struct AnalysisInfo {
     std::vector<CFStringInfo> cfStrings {};
+    std::vector<ClassRefInfo> classRefs {};
 
     std::vector<SharedSelectorRefInfo> selectorRefs {};
     std::unordered_map<uint64_t, SharedSelectorRefInfo> selectorRefsByKey {};

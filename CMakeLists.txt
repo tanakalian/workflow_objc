@@ -15,6 +15,7 @@ set(CORE_SOURCE
   Core/Analyzers/CFStringAnalyzer.h
   Core/Analyzers/ClassAnalyzer.h
   Core/Analyzers/SelectorAnalyzer.h
+  Core/Analyzers/ClassRefAnalyzer.h
   Core/BinaryViewFile.h
   Core/ABI.h
   Core/AbstractFile.h
@@ -25,6 +26,7 @@ set(CORE_SOURCE
   Core/Analyzers/CFStringAnalyzer.cpp
   Core/Analyzers/ClassAnalyzer.cpp
   Core/Analyzers/SelectorAnalyzer.cpp
+  Core/Analyzers/ClassRefAnalyzer.cpp
   Core/BinaryViewFile.cpp
   Core/ABI.cpp
   Core/AbstractFile.cpp

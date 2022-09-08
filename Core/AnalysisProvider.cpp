@@ -9,6 +9,7 @@
 
 #include "Analyzers/CFStringAnalyzer.h"
 #include "Analyzers/ClassAnalyzer.h"
+#include "Analyzers/ClassRefAnalyzer.h"
 #include "Analyzers/SelectorAnalyzer.h"
 
 namespace ObjectiveNinja {
@@ -21,6 +22,7 @@ SharedAnalysisInfo AnalysisProvider::infoForFile(SharedAbstractFile file)
     analyzers.emplace_back(new SelectorAnalyzer(info, file));
     analyzers.emplace_back(new ClassAnalyzer(info, file));
     analyzers.emplace_back(new CFStringAnalyzer(info, file));
+    analyzers.emplace_back(new ClassRefAnalyzer(info, file));
 
     for (const auto& analyzer : analyzers)
         analyzer->run();

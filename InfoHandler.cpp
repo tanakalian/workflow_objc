@@ -152,6 +152,8 @@ void InfoHandler::applyInfoToView(SharedAnalysisInfo info, BinaryViewRef bv)
     auto classType = namedType(bv, CustomTypes::Class);
     auto classDataType = namedType(bv, CustomTypes::ClassRO);
     auto methodListType = namedType(bv, CustomTypes::MethodList);
+    auto classRefType = BinaryNinja::Confidence<BinaryNinja::Ref<BinaryNinja::Type>>(
+        BinaryNinja::Type::PointerType(bv->GetAddressSize(), BinaryNinja::Type::VoidType(), 0));
 
     // Create data variables and symbols for all CFString instances.
     for (const auto& csi : info->cfStrings) {
@@ -181,6 +183,8 @@ void InfoHandler::applyInfoToView(SharedAnalysisInfo info, BinaryViewRef bv)
 
     unsigned totalMethods = 0;
 
+    std::map<uint64_t, std::string> addressToClassMap;
+
     // Create data variables and symbols for the analyzed classes.
     for (const auto& ci : info->classes) {
         defineVariable(bv, ci.listPointer, taggedPointerType);
@@ -189,6 +193,7 @@ void InfoHandler::applyInfoToView(SharedAnalysisInfo info, BinaryViewRef bv)
         defineVariable(bv, ci.nameAddress, stringType(ci.name.size()));
         defineSymbol(bv, ci.listPointer, ci.name, "cp_");
         defineSymbol(bv, ci.address, ci.name, "cl_");
+        addressToClassMap[ci.address] = ci.name;
         defineSymbol(bv, ci.dataAddress, ci.name, "ro_");
         defineSymbol(bv, ci.nameAddress, ci.name, "nm_");
 
@@ -225,6 +230,16 @@ void InfoHandler::applyInfoToView(SharedAnalysisInfo info, BinaryViewRef bv)
         defineSymbol(bv, ci.methodListAddress, ci.name, "ml_");
     }
 
+    for (const auto classRef : info->classRefs) {
+        bv->DefineDataVariable(classRef.address, classRefType);
+        if (classRef.referencedAddress != 0) {
+            auto localClass = addressToClassMap.find(classRef.referencedAddress);
+            if (localClass != addressToClassMap.end()) {
+                defineSymbol(bv, classRef.address, localClass->second, "cr_");
+            }
+        }
+    }
+
     bv->CommitUndoActions();
     bv->UpdateAnalysis();
 
@@ -235,4 +250,5 @@ void InfoHandler::applyInfoToView(SharedAnalysisInfo info, BinaryViewRef bv)
     log->LogInfo("Found %d classes, %d methods, %d selector references",
         info->classes.size(), totalMethods, info->selectorRefs.size());
     log->LogInfo("Found %d CFString instances", info->cfStrings.size());
+    log->LogInfo("Found %d class references", info->classRefs.size());
 }

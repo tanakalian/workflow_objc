@@ -39,6 +39,10 @@ void defineAll(Ref<BinaryView> bv)
 {
     int addrSize = bv->GetAddressSize();
 
+    defineTypedef(bv, {CustomTypes::TaggedPointer}, Type::PointerType(addrSize, Type::VoidType()));
+    defineTypedef(bv, {CustomTypes::FastPointer}, Type::PointerType(addrSize, Type::VoidType()));
+    defineTypedef(bv, {CustomTypes::RelativePointer}, Type::IntegerType(4, true));
+
     defineTypedef(bv, {"id"}, Type::PointerType(addrSize, Type::VoidType()));
     defineTypedef(bv, {"SEL"}, Type::PointerType(addrSize, Type::IntegerType(1, false)));
 

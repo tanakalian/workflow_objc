@@ -171,6 +171,34 @@ void Workflow::inlineMethodCalls(AnalysisContextRef ac)
                 log->LogInfo("Structures analyzed in %lu ms", elapsed.count());
 
                 InfoHandler::applyInfoToView(info, bv);
+
+                const auto msgSendFunctions = findMsgSendFunctions(bv);
+                for (auto addr : msgSendFunctions)
+                {
+                    BinaryNinja::QualifiedNameAndType nameAndType;
+                    std::string errors;
+                    std::set<BinaryNinja::QualifiedName> typesAllowRedefinition;
+
+                    // void *
+                    auto retType = BinaryNinja::Confidence<BinaryNinja::Ref<BinaryNinja::Type>>(
+                            BinaryNinja::Type::PointerType(bv->GetAddressSize(),BinaryNinja::Type::VoidType(), 
+                            0));
+
+                    std::vector<BinaryNinja::FunctionParameter> params;
+                    auto cc = bv->GetDefaultPlatform()->GetDefaultCallingConvention();
+
+                    params.push_back({"self",
+                        BinaryNinja::Type::NamedType(bv, {"id"}),
+                        true,
+                        BinaryNinja::Variable()});
+                    params.push_back({"sel",
+                        BinaryNinja::Type::PointerType(bv->GetAddressSize(), BinaryNinja::Type::IntegerType(1, false)),
+                        true,
+                        BinaryNinja::Variable()});
+
+                    auto funcType = BinaryNinja::Type::FunctionType(retType, cc, params, true);
+                    bv->DefineDataVariable(addr, BinaryNinja::Type::PointerType(bv->GetDefaultArchitecture(), funcType));
+                }
             } catch (...) {
                 log->LogError("Structure analysis failed; binary may be malformed.");
                 log->LogError("Objective-C analysis will not be applied due to previous errors.");

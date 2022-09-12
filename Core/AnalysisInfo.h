@@ -81,6 +81,38 @@ struct MethodListInfo {
 };
 
 /**
+ * A description of an Objective-C instance variable (ivar).
+ */
+struct IvarInfo
+{
+    uint64_t address = {};
+
+    uint32_t offset;
+    std::string name;
+    std::string type;
+
+    uint64_t offsetAddress {};
+    uint64_t nameAddress {};
+    uint64_t typeAddress {};
+    uint32_t size {};
+
+    /**
+     * Get the instance variable's type as a C-style token.
+     */
+    std::string decodedTypeToken() const;
+};
+
+/**
+ * A description of an Objective-C instance variable list.
+ */
+struct IvarListInfo {
+    uint64_t address {};
+
+    uint32_t count {};
+    std::vector<IvarInfo> ivars {};
+};
+
+/**
  * A description of an Objective-C class.
  */
 struct ClassInfo {
@@ -88,11 +120,13 @@ struct ClassInfo {
 
     std::string name {};
     MethodListInfo methodList {};
+    IvarListInfo ivarList {};
 
     uint64_t listPointer {};
     uint64_t dataAddress {};
     uint64_t nameAddress {};
     uint64_t methodListAddress {};
+    uint64_t ivarListAddress {};
 };
 
 struct ClassRefInfo {

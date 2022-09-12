@@ -20,6 +20,11 @@ class ClassAnalyzer : public Analyzer {
      */
     MethodListInfo analyzeMethodList(uint64_t);
 
+    /**
+     * Analyze an ivar list.
+     */
+    IvarListInfo analyzeIvarList(uint64_t);
+
 public:
     ClassAnalyzer(SharedAnalysisInfo, SharedAbstractFile);
 

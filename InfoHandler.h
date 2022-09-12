@@ -64,7 +64,10 @@ class InfoHandler {
      * Create a symbol and apply return/argument types for a method.
      */
     static void applyMethodType(BinaryViewRef, const ObjectiveNinja::ClassInfo&,
-        const ObjectiveNinja::MethodInfo&);
+        const BinaryNinja::QualifiedName& classTypeName, const ObjectiveNinja::MethodInfo&);
+
+    static BinaryNinja::QualifiedName createClassType(BinaryViewRef,
+        const ObjectiveNinja::ClassInfo&, const ObjectiveNinja::IvarListInfo&);
 
 public:
     /**

@@ -57,6 +57,39 @@ MethodListInfo ClassAnalyzer::analyzeMethodList(uint64_t address)
     return mli;
 }
 
+IvarListInfo ClassAnalyzer::analyzeIvarList(uint64_t address)
+{
+    IvarListInfo ili;
+    ili.address = address;
+    auto ivarCount = m_file->readInt(ili.address + 4);
+
+    ili.ivars.reserve(ivarCount);
+
+    auto ivarSize = 32; // (Pointer Size * 3) + 8
+
+    for (unsigned i = 0; i < ivarCount; ++i)
+    {
+        IvarInfo ii;
+        ii.address = ili.address + 8 + (i * ivarSize);
+
+        m_file->seek(ii.address);
+
+        ii.offsetAddress = arp(m_file->readLong());
+        ii.nameAddress = arp(m_file->readLong());
+        ii.typeAddress = arp(m_file->readLong());
+        m_file->readInt();
+        ii.size = m_file->readInt();
+
+        ii.offset = m_file->readInt(ii.offsetAddress);
+        ii.name = m_file->readStringAt(ii.nameAddress);
+        ii.type = m_file->readStringAt(ii.typeAddress);
+
+        ili.ivars.push_back(ii);
+    }
+
+    return ili;
+}
+
 void ClassAnalyzer::run()
 {
     const auto sectionStart = m_file->sectionStart("__objc_classlist");
@@ -81,6 +114,10 @@ void ClassAnalyzer::run()
         ci.methodListAddress = arp(m_file->readLong(ci.dataAddress + 0x20));
         if (ci.methodListAddress)
             ci.methodList = analyzeMethodList(ci.methodListAddress);
+
+        ci.ivarListAddress = arp(m_file->readLong(ci.dataAddress + 0x30));
+        if (ci.ivarListAddress)
+            ci.ivarList = analyzeIvarList(ci.ivarListAddress);
 
         m_info->classes.emplace_back(ci);
     }

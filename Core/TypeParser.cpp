@@ -42,17 +42,28 @@ static const std::map<char, std::string> TypeEncodingMap = {
 std::vector<std::string> TypeParser::parseEncodedType(const std::string& encodedType)
 {
     std::vector<std::string> result;
+    int pointerDepth = 0;
 
     for (size_t i = 0; i < encodedType.size(); ++i) {
         char c = encodedType[i];
+
+        // K: For example, ^@ is a single type, "id*".
+        if (c == '^') {
+            pointerDepth++;
+            continue;
+        }
 
         // Argument frame size and offset specifiers aren't relevant here; they
         // should just be skipped.
         if (std::isdigit(c))
             continue;
 
-        if (TypeEncodingMap.count(c)) {
-            result.emplace_back(TypeEncodingMap.at(c));
+        if (auto it = TypeEncodingMap.find(c); it != TypeEncodingMap.end()) {
+            std::string encoding = it->second;
+            for (int j = pointerDepth; j > 0; j--)
+                encoding += "*";
+            pointerDepth = 0;
+            result.emplace_back(encoding);
             continue;
         }
 
@@ -62,6 +73,7 @@ std::vector<std::string> TypeParser::parseEncodedType(const std::string& encoded
                 i++;
 
             // TODO: Emit real type names.
+            pointerDepth = 0;
             result.emplace_back("void*");
             continue;
         }
@@ -80,6 +92,7 @@ std::vector<std::string> TypeParser::parseEncodedType(const std::string& encoded
             }
 
             // TODO: Emit real struct types.
+            pointerDepth = 0;
             result.emplace_back("void*");
             continue;
         }

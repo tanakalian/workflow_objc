@@ -41,6 +41,15 @@ bool MethodListInfo::hasDirectSelectors() const
     return (flags & FlagsMask) & 0x40000000;
 }
 
+std::string IvarInfo::decodedTypeToken() const
+{
+    std::vector<std::string> encodedTypes = TypeParser::parseEncodedType(type);
+    if (encodedTypes.size() > 0)
+        return encodedTypes.front();
+    else
+        return {};
+}
+
 std::string AnalysisInfo::dump() const
 {
     return "<unimplemented>";

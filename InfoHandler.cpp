@@ -238,6 +238,17 @@ void InfoHandler::applyInfoToView(SharedAnalysisInfo info, BinaryViewRef bv)
             }
         }
     }
+    for (const auto superRef : info->superRefs) {
+        bv->DefineDataVariable(superRef.address, taggedPointerType);
+
+        if (superRef.referencedAddress == 0)
+            continue;
+
+        auto localClass = addressToClassMap.find(superRef.referencedAddress);
+        if (localClass != addressToClassMap.end()) {
+            defineSymbol(bv, superRef.address, localClass->second, "su_");
+        }
+    }
 
     bv->CommitUndoActions();
     bv->UpdateAnalysis();
@@ -249,5 +260,5 @@ void InfoHandler::applyInfoToView(SharedAnalysisInfo info, BinaryViewRef bv)
     log->LogInfo("Found %d classes, %d methods, %d selector references",
         info->classes.size(), totalMethods, info->selectorRefs.size());
     log->LogInfo("Found %d CFString instances", info->cfStrings.size());
-    log->LogInfo("Found %d class references", info->classRefs.size());
+    log->LogInfo("Found %d class references, %d superclass references", info->classRefs.size(), info->superRefs.size());
 }

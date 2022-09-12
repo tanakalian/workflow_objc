@@ -109,8 +109,9 @@ struct ClassRefInfo {
  */
 struct AnalysisInfo {
     std::vector<CFStringInfo> cfStrings {};
-    std::vector<ClassRefInfo> classRefs {};
 
+    std::vector<ClassRefInfo> classRefs {};
+    std::vector<ClassRefInfo> superRefs {};
     std::vector<SharedSelectorRefInfo> selectorRefs {};
     std::unordered_map<uint64_t, SharedSelectorRefInfo> selectorRefsByKey {};
 

@@ -135,7 +135,9 @@ void InfoHandler::applyMethodType(BinaryViewRef bv, const ObjectiveNinja::ClassI
             f->SetUserType(functionType);
     }
 
-    auto name = "[" + ci.name + " " + mi.selector + "]";
+    // TODO: Use '+' or '-' conditionally once class methods are supported. For
+    // right now, only instance methods are analyzed and we can just use '-'.
+    auto name = "-[" + ci.name + " " + mi.selector + "]";
     defineSymbol(bv, mi.implAddress, name, "", FunctionSymbol);
 }
 

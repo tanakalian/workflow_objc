@@ -135,9 +135,9 @@ void InfoHandler::applyMethodType(BinaryViewRef bv, const ObjectiveNinja::ClassI
             f->SetUserType(functionType);
     }
 
-    // TODO: Use '+' or '-' conditionally once class methods are supported. For
-    // right now, only instance methods are analyzed and we can just use '-'.
-    auto name = "-[" + ci.name + " " + mi.selector + "]";
+    std::string prefix = ci.isMetaClass ? "+" : "-";
+
+    auto name = prefix + "[" + ci.name + " " + mi.selector + "]";
     defineSymbol(bv, mi.implAddress, name, "", FunctionSymbol);
 }
 
@@ -223,6 +223,22 @@ void InfoHandler::applyInfoToView(SharedAnalysisInfo info, BinaryViewRef bv)
             defineReference(bv, mi.address, mi.implAddress);
 
             applyMethodType(bv, ci, mi);
+        }
+        if (ci.metaClassInfo->valid)
+        {
+            for (const auto& mi : ci.metaClassInfo->info.methodList.methods) {
+                ++totalMethods;
+
+                defineVariable(bv, mi.address, methodType);
+                defineSymbol(bv, mi.address, sanitizeSelector(mi.selector), "mt_");
+                defineVariable(bv, mi.typeAddress, stringType(mi.type.size()));
+
+                defineReference(bv, ci.metaClassInfo->info.methodList.address, mi.address);
+                defineReference(bv, mi.address, mi.nameAddress);
+                defineReference(bv, mi.address, mi.typeAddress);
+                defineReference(bv, mi.address, mi.implAddress);
+                applyMethodType(bv, ci.metaClassInfo->info, mi);
+            }
         }
 
         // Create a data variable and symbol for the method list header.

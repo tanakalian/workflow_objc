@@ -80,11 +80,16 @@ struct MethodListInfo {
     bool hasDirectSelectors() const;
 };
 
+struct MetaClassInfo;
+
 /**
  * A description of an Objective-C class.
  */
 struct ClassInfo {
     uint64_t address {};
+
+    bool isMetaClass;
+    MetaClassInfo* metaClassInfo;
 
     std::string name {};
     MethodListInfo methodList {};
@@ -93,6 +98,13 @@ struct ClassInfo {
     uint64_t dataAddress {};
     uint64_t nameAddress {};
     uint64_t methodListAddress {};
+};
+
+struct MetaClassInfo {
+    bool valid = false;
+    std::string name;
+    bool imported;
+    ClassInfo info {};
 };
 
 struct ClassRefInfo {

@@ -60,6 +60,44 @@ uint64_t BinaryViewFile::sectionEnd(const std::string& name) const
     return section->GetStart() + section->GetLength();
 }
 
+bool BinaryViewFile::addressIsMapped(uint64_t address, bool includeExtern) const
+{
+    if (!includeExtern)
+    {
+        uint64_t externStart = sectionStart(".extern");
+        uint64_t externEnd = sectionEnd(".extern");
+        if (externStart) {
+            if (externStart < address && externEnd > address) {
+                return false;
+            }
+        }
+    }
+
+    return m_bv->IsValidOffset(address);
+}
+
+
+bool BinaryViewFile::hasImportedSymbolAtLocation(uint64_t address) const
+{
+    BinaryNinja::Ref<BinaryNinja::Symbol> sym = m_bv->GetSymbolByAddress(address);
+
+    if (sym)
+        return (sym->GetType() == ImportedDataSymbol);
+
+    return false;
+}
+
+
+std::string BinaryViewFile::symbolNameAtLocation(uint64_t address) const
+{
+    BinaryNinja::Ref<BinaryNinja::Symbol> sym = m_bv->GetSymbolByAddress(address);
+
+    if (sym)
+        return sym->GetFullName();
+
+    return "";
+}
+
 }
 
 #endif

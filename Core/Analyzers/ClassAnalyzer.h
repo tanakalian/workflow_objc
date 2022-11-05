@@ -20,6 +20,8 @@ class ClassAnalyzer : public Analyzer {
      */
     MethodListInfo analyzeMethodList(uint64_t);
 
+    MetaClassInfo* analyzeISAPointer(uint64_t);
+
 public:
     ClassAnalyzer(SharedAnalysisInfo, SharedAbstractFile);
 

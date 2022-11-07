@@ -101,8 +101,7 @@ struct ClassInfo {
 };
 
 struct MetaClassInfo {
-    bool valid = false;
-    std::string name;
+    std::string name {};
     bool imported;
     ClassInfo info {};
 };

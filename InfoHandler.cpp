@@ -224,7 +224,7 @@ void InfoHandler::applyInfoToView(SharedAnalysisInfo info, BinaryViewRef bv)
 
             applyMethodType(bv, ci, mi);
         }
-        if (ci.metaClassInfo->valid)
+        if (ci.metaClassInfo)
         {
             for (const auto& mi : ci.metaClassInfo->info.methodList.methods) {
                 ++totalMethods;

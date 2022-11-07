@@ -62,15 +62,11 @@ MetaClassInfo* ClassAnalyzer::analyzeISAPointer(uint64_t isaPointer)
 {
     uint64_t address = m_file->readLong(isaPointer);
 
-    MetaClassInfo* info = new MetaClassInfo;
-    info->valid = false;
-
-    if (address == 0)
-        return info;
-
-    // Check if this pointer is valid and doesn't point to extern.
-    if (m_file->addressIsMapped(address, false))
+    // Check if this pointer is valid and doesn't point to extern or unmapped data (dsc).
+    if (address != 0 && m_file->addressIsMapped(address, false))
     {
+        MetaClassInfo* info = new MetaClassInfo;
+
         ClassInfo ci;
         ci.listPointer = isaPointer;
         ci.address = address;
@@ -90,13 +86,13 @@ MetaClassInfo* ClassAnalyzer::analyzeISAPointer(uint64_t isaPointer)
 
         ci.isMetaClass = true;
 
-        info->valid = true;
         info->info = ci;
         info->name = ci.name;
         info->imported = false;
+        return info;
     }
 
-    return info;
+    return nullptr;
 }
 
 void ClassAnalyzer::run()

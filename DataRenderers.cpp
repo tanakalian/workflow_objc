@@ -49,7 +49,7 @@ DisassemblyTextLine lineForPointer(BinaryView* bv, uint64_t pointer,
         tokenType = tokenTypeForSymbol(symbol);
     } else {
         char addressBuffer[32];
-        sprintf(addressBuffer, "0x%" PRIx64, pointer);
+        snprintf(addressBuffer, sizeof(addressBuffer), "0x%" PRIx64, pointer);
 
         tokenText = std::string(addressBuffer);
         tokenType = CodeRelativeAddressToken;

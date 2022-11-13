@@ -62,6 +62,8 @@ set(PLUGIN_SOURCE
   InfoHandler.h
   InfoHandler.cpp
   Plugin.cpp
+  ObjCMessageHandler.cpp
+  ObjCMessageHandler.h
   Workflow.h
   Workflow.cpp)
 

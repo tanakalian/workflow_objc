@@ -24,13 +24,12 @@ constexpr auto ResolveMethodCalls = "core.function.objectiveC.resolveMethodCalls
 class Workflow {
 
     /**
-     * Get the addresses of all usable `_objc_msgSend` functions.
+     * Attempt to rewrite the `objc_msgSend` call at `insnIndex` with a direct
+     * call to the requested method's implementation.
      *
-     * Not all `_objc_msgSend` functions in the binary are usable, and there
-     * may also be more than one usable candidate. For additional details and
-     * specifics, see this function's implementation.
+     * @param insnIndex The index of the `LLIL_CALL` instruction to rewrite
      */
-    static std::set<uint64_t> findMsgSendFunctions(BinaryViewRef);
+    static void rewriteMethodCall(LLILFunctionRef, size_t insnIndex);
 
     /**
      * Attempt to rewrite the `objc_msgSend` call at `insnIndex` with a direct
@@ -38,7 +37,7 @@ class Workflow {
      *
      * @param insnIndex The index of the `LLIL_CALL` instruction to rewrite
      */
-    static void rewriteMethodCall(LLILFunctionRef, size_t insnIndex);
+    static void inlineAndRewriteMethodCall(LLILFunctionRef, size_t insnIndex);
 
 public:
     /**

@@ -25,55 +25,6 @@ static std::mutex g_initialAnalysisMutex;
 using SectionRef = BinaryNinja::Ref<BinaryNinja::Section>;
 using SymbolRef = BinaryNinja::Ref<BinaryNinja::Symbol>;
 
-std::set<uint64_t> Workflow::findMsgSendFunctions(BinaryViewRef bv)
-{
-    std::set<uint64_t> results;
-
-    const auto authStubsSection = bv->GetSectionByName("__auth_stubs");
-    const auto stubsSection = bv->GetSectionByName("__stubs");
-    const auto authGotSection = bv->GetSectionByName("__auth_got");
-    const auto gotSection = bv->GetSectionByName("__got");
-    const auto laSymbolPtrSection = bv->GetSectionByName("__la_symbol_ptr");
-
-    // Shorthand to check if a symbol lies in a given section.
-    auto sectionContains = [](SectionRef section, SymbolRef symbol) {
-        const auto start = section->GetStart();
-        const auto length = section->GetLength();
-        const auto address = symbol->GetAddress();
-
-        return (uint64_t)(address - start) <= length;
-    };
-
-    // There can be multiple `_objc_msgSend` symbols in the same binary; there
-    // may even be lots. Some of them are valid, others aren't. In order of
-    // preference, `_objc_msgSend` symbols in the following sections are
-    // preferred:
-    //
-    //   1. __auth_stubs
-    //   2. __stubs
-    //   3. __auth_got
-    //   4. __got
-    //   ?. __la_symbol_ptr
-    //
-    // There is often an `_objc_msgSend` symbol that is a stub function, found
-    // in the `__stubs` section, which will come with an imported symbol of the
-    // same name in the `__got` section. Not all `__objc_msgSend` calls will be
-    // routed through the stub function, making it important to make note of
-    // both symbols' addresses. Furthermore, on ARM64, the `__auth{stubs,got}`
-    // sections are preferred over their unauthenticated counterparts.
-    const auto candidates = bv->GetSymbolsByName("_objc_msgSend");
-    for (const auto& c : candidates) {
-        if ((authStubsSection && sectionContains(authStubsSection, c))
-            || (stubsSection && sectionContains(stubsSection, c))
-            || (authGotSection && sectionContains(authGotSection, c))
-            || (gotSection && sectionContains(gotSection, c))
-            || (laSymbolPtrSection && sectionContains(laSymbolPtrSection, c)))
-            results.insert(c->GetAddress());
-    }
-
-    return results;
-}
-
 void Workflow::rewriteMethodCall(LLILFunctionRef ssa, size_t insnIndex)
 {
     const auto bv = ssa->GetFunction()->GetView();
@@ -84,6 +35,7 @@ void Workflow::rewriteMethodCall(LLILFunctionRef ssa, size_t insnIndex)
     // The second parameter passed to the objc_msgSend call is the address of
     // either the selector reference or the method's name, which in both cases
     // is dereferenced to retrieve a selector.
+
     const auto selectorRegister = params[1].GetSourceSSARegister<LLIL_REG_SSA>();
     uint64_t rawSelector = ssa->GetSSARegisterValue(selectorRegister).value;
 
@@ -100,10 +52,16 @@ void Workflow::rewriteMethodCall(LLILFunctionRef ssa, size_t insnIndex)
     // Attempt to look up the implementation for the given selector, first by
     // using the raw selector, then by the address of the selector reference. If
     // the lookup fails in both cases, abort.
-    uint64_t implAddress = info->methodImpls[selectorRef->rawSelector];
-    if (!implAddress)
-        implAddress = info->methodImpls[selectorRef->address];
-    if (!implAddress)
+    uint64_t implAddress;
+    if (auto impl = info->methodImpls.find(selectorRef->rawSelector); impl != info->methodImpls.end())
+    {
+        implAddress = impl->second;
+    }
+    else if (auto directImpl = info->methodImpls.find(selectorRef->address); directImpl != info->methodImpls.end())
+    {
+        implAddress = directImpl->second;
+    }
+    else
         return;
 
     const auto llilIndex = ssa->GetNonSSAInstructionIndex(insnIndex);
@@ -117,6 +75,85 @@ void Workflow::rewriteMethodCall(LLILFunctionRef ssa, size_t insnIndex)
     llilInsn.Replace(llil->Call(callDestExpr.exprIndex, llilInsn));
 
     llil->GenerateSSAForm();
+}
+
+void Workflow::inlineAndRewriteMethodCall(LLILFunctionRef ssa, size_t insnIndex)
+{
+    const auto bv = ssa->GetFunction()->GetView();
+    const auto llil = ssa->GetNonSSAForm();
+
+    const auto llilIndex = ssa->GetNonSSAInstructionIndex(insnIndex);
+    auto llilInsn = llil->GetInstruction(llilIndex);
+
+    BinaryNinja::Ref<BinaryNinja::Function> targetFunc = bv->GetAnalysisFunction(bv->GetDefaultPlatform(),
+        llilInsn.GetDestExpr<LLIL_CALL>().GetConstant());
+
+    if (!targetFunc)
+    {
+        BNLogError("Couldn't get LLIL for stub target %llx", llilInsn.GetDestExpr<LLIL_CALL>().GetConstant());
+        return;
+    }
+
+    auto targetLlil = targetFunc->GetLowLevelIL();
+    BinaryNinja::LowLevelILLabel inlineStartLabel;
+    llil->MarkLabel(inlineStartLabel);
+    llilInsn.Replace(llil->Goto(inlineStartLabel));
+
+    llil->PrepareToCopyFunction(targetLlil);
+    for (auto& ti : targetLlil->GetBasicBlocks())
+    {
+        llil->PrepareToCopyBlock(ti);
+        for (size_t tinstrIndex = ti->GetStart(); tinstrIndex < ti->GetEnd(); tinstrIndex++)
+        {
+            BinaryNinja::LowLevelILInstruction tinstr = targetLlil->GetInstruction(tinstrIndex);
+            if (tinstr.operation == LLIL_TAILCALL)
+            {
+                uint64_t rawSelector = targetLlil->GetSSAForm()->GetSSARegisterValue(
+                    targetLlil->GetSSAForm()->GetInstruction(tinstrIndex).GetParameterExprs()[1].GetSourceSSARegister()
+                    ).value;
+
+                const auto info = GlobalState::analysisInfo(bv);
+                if (!info || !info->selectorRefsByKey.count(rawSelector))
+                    return;
+
+                const auto selectorRef = info->selectorRefsByKey[rawSelector];
+
+                uint64_t implAddress;
+                if (auto impl = info->methodImpls.find(selectorRef->rawSelector); impl != info->methodImpls.end())
+                    implAddress = impl->second;
+                else if (auto directImpl = info->methodImpls.find(selectorRef->address); directImpl != info->methodImpls.end())
+                    implAddress = directImpl->second;
+                else
+                {
+                    // If we cant resolve it, just convert it to a call to objc_msgSend and jump back.
+                    tinstr.operation = LLIL_CALL;
+                    llil->AddInstruction(tinstr.CopyTo(llil));
+                    BinaryNinja::LowLevelILLabel label;
+                    label.operand = llilIndex + 1;
+                    llil->AddInstruction(llil->Goto(label));
+                    continue;
+                }
+
+                tinstr.operation = LLIL_CALL;
+                auto newCallExprID = llil->AddInstruction(tinstr.CopyTo(llil));
+
+                auto newInsn = llil->GetInstruction(newCallExprID);
+
+                auto callDestExpr = newInsn.GetDestExpr<LLIL_CALL>();
+                callDestExpr.Replace(llil->ConstPointer(callDestExpr.size, implAddress, callDestExpr));
+
+                BinaryNinja::LowLevelILLabel label;
+                label.operand = llilIndex + 1;
+                llil->AddInstruction(llil->Goto(label));
+            }
+            else {
+                llil->AddInstruction(tinstr.CopyTo(llil));
+            }
+        }
+    }
+
+    llil->GenerateSSAForm();
+    llil->Finalize();
 }
 
 void Workflow::inlineMethodCalls(AnalysisContextRef ac)
@@ -160,6 +197,8 @@ void Workflow::inlineMethodCalls(AnalysisContextRef ac)
             SharedAnalysisInfo info;
             CustomTypes::defineAll(bv);
 
+            ObjCMessageHandler* messageHandler = GlobalState::messageHandler(bv);
+
             try {
                 auto file = std::make_shared<ObjectiveNinja::BinaryViewFile>(bv);
 
@@ -172,7 +211,7 @@ void Workflow::inlineMethodCalls(AnalysisContextRef ac)
 
                 InfoHandler::applyInfoToView(info, bv);
 
-                const auto msgSendFunctions = findMsgSendFunctions(bv);
+                const auto msgSendFunctions = messageHandler->GetMessageSendFunctions();
                 for (auto addr : msgSendFunctions)
                 {
                     BinaryNinja::QualifiedNameAndType nameAndType;
@@ -210,10 +249,9 @@ void Workflow::inlineMethodCalls(AnalysisContextRef ac)
     }
 
     // Try to find the `objc_msgSend` functions(s), abort activity if missing.
-    //
-    // TODO: These results should be cached somehow as it can't be efficient to
-    // repeatedly search for all the usable function addresses.
-    const auto msgSendFunctions = findMsgSendFunctions(bv);
+    auto messageHandler = GlobalState::messageHandler(bv);
+    const auto msgSendFunctions = messageHandler->GetMessageSendFunctions();
+
     if (msgSendFunctions.empty()) {
         log->LogError("Cannot perform Objective-C IL cleanup; no objc_msgSend candidates found");
         GlobalState::addIgnoredView(bv);
@@ -231,7 +269,7 @@ void Workflow::inlineMethodCalls(AnalysisContextRef ac)
         return;
     }
 
-    const auto rewriteIfEligible = [msgSendFunctions, ssa](size_t insnIndex) {
+    const auto rewriteIfEligible = [&, bv, msgSendFunctions, messageHandler, ssa](size_t insnIndex) {
         auto insn = ssa->GetInstruction(insnIndex);
 
         if (insn.operation != LLIL_CALL_SSA)
@@ -240,7 +278,11 @@ void Workflow::inlineMethodCalls(AnalysisContextRef ac)
         // Filter out calls that aren't to `objc_msgSend`.
         auto callExpr = insn.GetDestExpr<LLIL_CALL_SSA>();
         if (!msgSendFunctions.count(callExpr.GetValue().value))
+        {
+            if (messageHandler->IsPotentialMessageStub(callExpr.GetValue().value))
+                inlineAndRewriteMethodCall(ssa, insnIndex);
             return;
+        }
 
         // By convention, the selector is the second argument to `objc_msgSend`,
         // therefore two parameters are required for a proper rewrite; abort if

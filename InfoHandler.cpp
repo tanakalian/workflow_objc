@@ -154,6 +154,7 @@ QualifiedName InfoHandler::createClassType(BinaryViewRef bv, const ObjectiveNinj
         if (encodedType.empty())
         {
             BinaryNinja::LogWarn("Failed to process ivar type %s", ivar.type.c_str());
+            encodedType = "void *";
         }
         std::string errors;
         TypeParserResult tpResult;
@@ -173,7 +174,11 @@ QualifiedName InfoHandler::createClassType(BinaryViewRef bv, const ObjectiveNinj
     std::string errors;
     TypeParserResult tpResult;
     auto ok = bv->ParseTypesFromSource(typeDefType, {}, {}, tpResult, errors);
-    bv->DefineUserType(info.name, tpResult.types[0].type);
+    if (ok)
+        bv->DefineUserType(info.name, tpResult.types[0].type);
+    else {
+        return CustomTypes::ID;
+    }
 
     return info.name;
 }

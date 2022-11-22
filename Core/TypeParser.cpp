@@ -82,13 +82,18 @@ std::vector<std::string> TypeParser::parseEncodedType(const std::string& encoded
         if (c == '{') {
             auto depth = 1;
 
-            while (depth != 0) {
+            while (depth != 0 && i < (encodedType.size()-1)) {
                 char d = encodedType[++i];
 
                 if (d == '{')
                     ++depth;
                 else if (d == '}')
                     --depth;
+            }
+            if (i == (encodedType.size()-1))
+            {
+                // malformed or unknown typestring, we cannot recover from this.
+                return {};
             }
 
             // TODO: Emit real struct types.

@@ -24,6 +24,7 @@ class ClassAnalyzer : public Analyzer {
      * Analyze an ivar list.
      */
     IvarListInfo analyzeIvarList(uint64_t);
+    MetaClassInfo* analyzeISAPointer(uint64_t);
 
 public:
     ClassAnalyzer(SharedAnalysisInfo, SharedAbstractFile);

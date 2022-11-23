@@ -80,6 +80,8 @@ struct MethodListInfo {
     bool hasDirectSelectors() const;
 };
 
+struct MetaClassInfo;
+
 /**
  * A description of an Objective-C instance variable (ivar).
  */
@@ -118,6 +120,9 @@ struct IvarListInfo {
 struct ClassInfo {
     uint64_t address {};
 
+    bool isMetaClass;
+    MetaClassInfo* metaClassInfo;
+
     std::string name {};
     MethodListInfo methodList {};
     IvarListInfo ivarList {};
@@ -127,6 +132,12 @@ struct ClassInfo {
     uint64_t nameAddress {};
     uint64_t methodListAddress {};
     uint64_t ivarListAddress {};
+};
+
+struct MetaClassInfo {
+    std::string name {};
+    bool imported;
+    ClassInfo info {};
 };
 
 struct ClassRefInfo {

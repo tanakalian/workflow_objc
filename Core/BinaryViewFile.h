@@ -37,6 +37,12 @@ public:
     uint64_t imageBase() const override;
     uint64_t sectionStart(const std::string& name) const override;
     uint64_t sectionEnd(const std::string& name) const override;
+
+    bool addressIsMapped(uint64_t address, bool includeExtern) const override;
+
+    bool hasImportedSymbolAtLocation(uint64_t address) const override;
+
+    std::string symbolNameAtLocation(uint64_t address) const override;
 };
 
 }

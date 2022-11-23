@@ -67,8 +67,7 @@ IvarListInfo ClassAnalyzer::analyzeIvarList(uint64_t address)
 
     auto ivarSize = 32; // (Pointer Size * 3) + 8
 
-    for (unsigned i = 0; i < ivarCount; ++i)
-    {
+    for (unsigned i = 0; i < ivarCount; ++i) {
         IvarInfo ii;
         ii.address = ili.address + 8 + (i * ivarSize);
 
@@ -90,17 +89,18 @@ IvarListInfo ClassAnalyzer::analyzeIvarList(uint64_t address)
     return ili;
 }
 
-void ClassAnalyzer::run()
+MetaClassInfo* ClassAnalyzer::analyzeISAPointer(uint64_t isaPointer)
 {
-    const auto sectionStart = m_file->sectionStart("__objc_classlist");
-    const auto sectionEnd = m_file->sectionEnd("__objc_classlist");
-    if (sectionStart == 0 || sectionEnd == 0)
-        return;
+    uint64_t address = m_file->readLong(isaPointer);
 
-    for (auto address = sectionStart; address < sectionEnd; address += 8) {
+    // Check if this pointer is valid and doesn't point to extern or unmapped data (dsc).
+    if (address != 0 && m_file->addressIsMapped(address, false))
+    {
+        MetaClassInfo* info = new MetaClassInfo;
+
         ClassInfo ci;
-        ci.listPointer = address;
-        ci.address = arp(m_file->readLong(address));
+        ci.listPointer = isaPointer;
+        ci.address = address;
         ci.dataAddress = arp(m_file->readLong(ci.address + 0x20));
 
         // Sometimes the lower two bits of the data address are used as flags
@@ -115,10 +115,50 @@ void ClassAnalyzer::run()
         if (ci.methodListAddress)
             ci.methodList = analyzeMethodList(ci.methodListAddress);
 
+        ci.isMetaClass = true;
+
+        info->info = ci;
+        info->name = ci.name;
+        info->imported = false;
+        return info;
+    }
+
+    return nullptr;
+}
+
+void ClassAnalyzer::run()
+{
+    const auto sectionStart = m_file->sectionStart("__objc_classlist");
+    const auto sectionEnd = m_file->sectionEnd("__objc_classlist");
+    if (sectionStart == 0 || sectionEnd == 0)
+        return;
+
+    for (auto address = sectionStart; address < sectionEnd; address += 8) {
+        ClassInfo ci;
+        ci.listPointer = address;
+        ci.address = arp(m_file->readLong(address));
+        ci.dataAddress = arp(m_file->readLong(ci.address + 0x20));
+
+        ci.metaClassInfo = analyzeISAPointer(ci.address);
+
+        // Sometimes the lower two bits of the data address are used as flags
+        // for Swift/Objective-C classes. They should be ignored, unless you
+        // want incorrect analysis...
+        ci.dataAddress &= ~ABI::FastPointerDataMask;
+
+        ci.nameAddress = arp(m_file->readLong(ci.dataAddress + 0x18));
+        ci.name = m_file->readStringAt(ci.nameAddress);
+
+        ci.methodListAddress = arp(m_file->readLong(ci.dataAddress + 0x20));
+        if (ci.methodListAddress)
+            ci.methodList = analyzeMethodList(ci.methodListAddress);
+
+
         ci.ivarListAddress = arp(m_file->readLong(ci.dataAddress + 0x30));
         if (ci.ivarListAddress)
             ci.ivarList = analyzeIvarList(ci.ivarListAddress);
 
+        ci.isMetaClass = false;
         m_info->classes.emplace_back(ci);
     }
 }

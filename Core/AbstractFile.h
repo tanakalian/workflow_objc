@@ -77,6 +77,11 @@ public:
      * Get the offset corresponding to the end of the given section.
      */
     virtual uint64_t sectionEnd(const std::string&) const = 0;
+
+    virtual bool addressIsMapped(uint64_t address, bool includeExtern) const = 0;
+
+    virtual bool hasImportedSymbolAtLocation(uint64_t address) const = 0;
+    virtual std::string symbolNameAtLocation(uint64_t address) const = 0;
 };
 
 }

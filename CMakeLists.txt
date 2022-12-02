@@ -46,6 +46,8 @@ set(PLUGIN_SOURCE
   GlobalState.cpp
   InfoHandler.h
   InfoHandler.cpp
+  MessageHandler.cpp
+  MessageHandler.h
   Plugin.cpp
   Workflow.h
   Workflow.cpp)

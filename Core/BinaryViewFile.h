@@ -7,8 +7,6 @@
 
 #pragma once
 
-#ifdef OAC_BN_SUPPORT
-
 #include "AbstractFile.h"
 
 #include <binaryninjaapi.h>
@@ -46,5 +44,3 @@ public:
 };
 
 }
-
-#endif

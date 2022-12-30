@@ -9,100 +9,161 @@
 
 #include <map>
 
+using namespace BinaryNinja;
+
 namespace ObjectiveNinja {
 
-static const std::map<char, std::string> TypeEncodingMap = {
-    { 'v', "void" },
-    { 'c', "char" },
-    { 's', "short" },
-    { 'i', "int" },
-    { 'l', "long" },
-    { 'C', "unsigned char" },
-    { 'S', "unsigned short" },
-    { 'I', "unsigned int" },
-    { 'L', "unsigned long" },
-    { 'f', "float" },
-    { 'A', "uint8_t" },
-    { 'b', "BOOL" },
-    { 'B', "BOOL" },
-
-    { 'q', "NSInteger" },
-    { 'Q', "NSUInteger" },
-    { 'd', "CGFloat" },
-    { '*', "char *" },
-
-    { '@', "id" },
-    { ':', "SEL" },
-    { '#', "objc_class_t" },
-
-    { '?', "void*" },
-    { 'T', "void*" },
-};
-
-std::vector<std::string> TypeParser::parseEncodedType(const std::string& encodedType)
+std::vector<QualifiedNameOrType> TypeParser::parseEncodedType(const std::string& encodedType)
 {
-    std::vector<std::string> result;
+    std::vector<QualifiedNameOrType> result;
     int pointerDepth = 0;
 
-    for (size_t i = 0; i < encodedType.size(); ++i) {
-        char c = encodedType[i];
+    bool readingNamedType = false;
+    std::string namedType;
+    size_t readingStructDepth = 0;
+    std::string structType;
+    char last;
 
-        // K: For example, ^@ is a single type, "id*".
-        if (c == '^') {
-            pointerDepth++;
+    for (char c : encodedType) {
+
+        if (readingNamedType && c != '"') {
+            namedType.push_back(c);
+            last = c;
+            continue;
+        } else if (readingStructDepth > 0 && c != '{' && c != '}') {
+            structType.push_back(c);
+            last = c;
             continue;
         }
 
-        // Argument frame size and offset specifiers aren't relevant here; they
-        // should just be skipped.
         if (std::isdigit(c))
             continue;
 
-        if (auto it = TypeEncodingMap.find(c); it != TypeEncodingMap.end()) {
-            std::string encoding = it->second;
-            for (int j = pointerDepth; j > 0; j--)
-                encoding += "*";
-            pointerDepth = 0;
-            result.emplace_back(encoding);
+        QualifiedNameOrType nameOrType;
+        std::string qualifiedName;
+
+        switch (c) {
+        case '^':
+            pointerDepth++;
+            last = c;
             continue;
-        }
 
-        // (Partially) handle quoted type names.
-        if (c == '"') {
-            while (encodedType[i] != '"')
-                i++;
-
-            // TODO: Emit real type names.
-            pointerDepth = 0;
-            result.emplace_back("void*");
-            continue;
-        }
-
-        // (Partially) handle struct types.
-        if (c == '{') {
-            auto depth = 1;
-
-            while (depth != 0 && i < (encodedType.size()-1)) {
-                char d = encodedType[++i];
-
-                if (d == '{')
-                    ++depth;
-                else if (d == '}')
-                    --depth;
+        case '"':
+            if (!readingNamedType) {
+                readingNamedType = true;
+                if (last == '@')
+                    result.pop_back(); // We added an 'id' in the last cycle, remove it
+                last = c;
+                continue;
+            } else {
+                readingNamedType = false;
+                nameOrType.name = QualifiedName(namedType);
+                nameOrType.ptrCount = 1;
+                break;
             }
-            if (i == (encodedType.size()-1))
-            {
-                // malformed or unknown typestring, we cannot recover from this.
-                return {};
-            }
+        case '{':
+            readingStructDepth++;
+            last = c;
+            continue;
+        case '}':
+            readingStructDepth--;
 
-            // TODO: Emit real struct types.
-            pointerDepth = 0;
-            result.emplace_back("void*");
+            if (readingStructDepth == 0) {
+                // TODO: Emit real struct types
+                nameOrType.type = Type::PointerType(8, Type::VoidType());
+                break;
+            }
+            last = c;
+            continue;
+        case 'v':
+            nameOrType.type = Type::VoidType();
+            break;
+        case 'c':
+            nameOrType.type = Type::IntegerType(1, true);
+            break;
+        case 'A':
+        case 'C':
+            nameOrType.type = Type::IntegerType(1, false);
+            break;
+        case 's':
+            nameOrType.type = Type::IntegerType(2, true);
+            break;
+        case 'S':
+            nameOrType.type = Type::IntegerType(1, false);
+            break;
+        case 'i':
+            nameOrType.type = Type::IntegerType(4, true);
+            break;
+        case 'I':
+            nameOrType.type = Type::IntegerType(4, false);
+            break;
+        case 'l':
+            nameOrType.type = Type::IntegerType(8, true);
+            break;
+        case 'L':
+            nameOrType.type = Type::IntegerType(8, true);
+            break;
+        case 'f':
+            nameOrType.type = Type::IntegerType(4, true);
+            break;
+        case 'b':
+        case 'B':
+            nameOrType.type = Type::BoolType();
+            break;
+        case 'q':
+            qualifiedName = "NSInteger";
+            break;
+        case 'Q':
+            qualifiedName = "NSUInteger";
+            break;
+        case 'd':
+            qualifiedName = "CGFloat";
+            break;
+        case '*':
+            nameOrType.type = Type::PointerType(8, Type::IntegerType(1, true));
+            break;
+        case '@':
+            qualifiedName = "id";
+            // There can be a type after this, like @"NSString", that overrides this
+            // The handler for " will catch it and drop this "id" entry.
+            break;
+        case ':':
+            qualifiedName = "SEL";
+            break;
+        case '#':
+            qualifiedName = "objc_class_t";
+            break;
+        case '?':
+        case 'T':
+            nameOrType.type = Type::PointerType(8, Type::VoidType());
+            break;
+        default:
+            // BNLogWarn("Unknown type specifier %c", c);
+            last = c;
             continue;
         }
 
-        break;
+        while (pointerDepth) {
+            if (nameOrType.type)
+                nameOrType.type = Type::PointerType(8, nameOrType.type);
+            else
+                nameOrType.ptrCount++;
+
+            pointerDepth--;
+        }
+
+        if (!qualifiedName.empty())
+            nameOrType.name = QualifiedName(qualifiedName);
+
+        if (nameOrType.type == nullptr && nameOrType.name.IsEmpty()) {
+            // BNLogError("Parsing Typestring item %c failed", c);
+            nameOrType.type = Type::VoidType();
+        }
+
+        // BNLogWarn("Pushing back a type %s on %c", nameOrType.type ? nameOrType.type->GetString().c_str() : nameOrType.name.GetString().c_str(), c);
+
+        result.push_back(nameOrType);
+        last = c;
     }
 
     return result;

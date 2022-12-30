@@ -26,7 +26,7 @@ std::vector<std::string> MethodInfo::selectorTokens() const
     return result;
 }
 
-std::vector<std::string> MethodInfo::decodedTypeTokens() const
+std::vector<QualifiedNameOrType> MethodInfo::decodedTypeTokens() const
 {
     return TypeParser::parseEncodedType(type);
 }
@@ -41,9 +41,10 @@ bool MethodListInfo::hasDirectSelectors() const
     return (flags & FlagsMask) & 0x40000000;
 }
 
-std::string IvarInfo::decodedTypeToken() const
+QualifiedNameOrType IvarInfo::decodedTypeToken() const
 {
-    std::vector<std::string> encodedTypes = TypeParser::parseEncodedType(type);
+    std::vector<QualifiedNameOrType> encodedTypes = TypeParser::parseEncodedType(type);
+
     if (encodedTypes.size() > 0)
         return encodedTypes.front();
     else

@@ -9,9 +9,9 @@ if(NOT BN_INTERNAL_BUILD)
   add_subdirectory(Vendor/BinaryNinjaAPI)
 endif()
 
-# Core library -----------------------------------------------------------------
+# Binary Ninja plugin ----------------------------------------------------------
 
-set(CORE_SOURCE
+set(PLUGIN_SOURCE
   Core/Analyzers/CFStringAnalyzer.h
   Core/Analyzers/ClassAnalyzer.h
   Core/Analyzers/SelectorAnalyzer.h
@@ -33,24 +33,7 @@ set(CORE_SOURCE
   Core/AnalysisInfo.cpp
   Core/AnalysisProvider.cpp
   Core/Analyzer.cpp
-  Core/TypeParser.cpp)
-
-add_library(objc_analysis_core STATIC ${CORE_SOURCE})
-target_compile_features(objc_analysis_core PRIVATE cxx_std_17)
-
-# Option to specify whether the core library should be built with support
-# modules for integrating with Binary Ninja. Enabled by default, but able to be
-# turned off so the core library can be built without the Binary Ninja
-# dependency; an alternative AbstractFile implementation will be needed.
-option(OAC_BN_SUPPORT "Build core library support for Binary Ninja" ON)
-if(OAC_BN_SUPPORT)
-  target_compile_definitions(objc_analysis_core PUBLIC OAC_BN_SUPPORT=1)
-  target_link_libraries(objc_analysis_core PRIVATE binaryninjaapi)
-endif()
-
-# Binary Ninja plugin ----------------------------------------------------------
-
-set(PLUGIN_SOURCE
+  Core/TypeParser.cpp
   Commands.h
   Commands.cpp
   CustomTypes.h
@@ -66,13 +49,12 @@ set(PLUGIN_SOURCE
   Workflow.cpp)
 
 add_library(workflow_objc SHARED ${PLUGIN_SOURCE})
-target_link_libraries(workflow_objc objc_analysis_core binaryninjaapi)
+target_link_libraries(workflow_objc binaryninjaapi)
 target_compile_features(workflow_objc PRIVATE cxx_std_17 c_std_99)
 
 # Library targets linking against the Binary Ninja API need to be compiled with
 # position-independent code on Linux.
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-  target_compile_options(objc_analysis_core PRIVATE "-fPIC")
   target_compile_options(workflow_objc PRIVATE "-fPIC")
 endif()
 

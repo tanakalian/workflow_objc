@@ -73,7 +73,7 @@ void InfoHandler::applyMethodType(BinaryViewRef bv, const ObjectiveNinja::ClassI
     const BinaryNinja::QualifiedName& classTypeName, const ObjectiveNinja::MethodInfo& mi)
 {
     auto selectorTokens = mi.selectorTokens();
-    auto typeTokens = mi.decodedTypeTokens();
+    std::vector<ObjectiveNinja::QualifiedNameOrType> typeTokens = mi.decodedTypeTokens();
 
     // For safety, ensure out-of-bounds indexing is not about to occur. This has
     // never happened and likely won't ever happen, but crashing the product is
@@ -83,61 +83,60 @@ void InfoHandler::applyMethodType(BinaryViewRef bv, const ObjectiveNinja::ClassI
         return;
     }
 
-    // Shorthand for formatting an individual "part" of the type signature.
-    auto partForIndex = [selectorTokens, typeTokens, classTypeName](size_t i) {
-        std::string argName;
+    auto typeForQualifiedNameOrType = [bv](ObjectiveNinja::QualifiedNameOrType nameOrType) {
+        Ref<Type> type;
 
-        // Indices 0, 1, and 2 are the function return type, self parameter, and
-        // selector parameter, respectively. Indices 3+ are the actual
-        // arguments to the function.
-        if (i == 0)
-            argName = "";
-        else if (i == 1)
-            argName = "self";
-        else if (i == 2)
-            argName = "sel";
-        else if (i - 3 < selectorTokens.size())
-            argName = selectorTokens[i - 3];
+        if (nameOrType.type) {
+            type = nameOrType.type;
+            if (!type)
+                type = Type::PointerType(bv->GetAddressSize(), Type::VoidType());
 
-        // Inject our custom class type only if one was provided.
-        if (i == 1 && !classTypeName.IsEmpty())
-            return classTypeName.GetString() + " " + argName;
-        else
-            return typeTokens[i] + " " + argName;
+        } else {
+            type = Type::NamedType(nameOrType.name, Type::PointerType(bv->GetAddressSize(), Type::VoidType()));
+            for (size_t i = nameOrType.ptrCount; i > 0; i--)
+                type = Type::PointerType(8, type);
+        }
+
+        return type;
     };
 
-    // Build the type string for the method.
-    std::string typeString;
-    for (size_t i = 0; i < typeTokens.size(); ++i) {
+    BinaryNinja::QualifiedNameAndType nameAndType;
+    std::set<BinaryNinja::QualifiedName> typesAllowRedefinition;
+
+    auto retType = typeForQualifiedNameOrType(typeTokens[0]);
+
+    std::vector<BinaryNinja::FunctionParameter> params;
+    auto cc = bv->GetDefaultPlatform()->GetDefaultCallingConvention();
+
+    params.push_back({ "self",
+        classTypeName.IsEmpty()
+            ? BinaryNinja::Type::NamedType(bv, { "id" })
+            : BinaryNinja::Type::NamedType(bv, classTypeName),
+        true,
+        BinaryNinja::Variable() });
+
+    params.push_back({ "sel",
+        namedType(bv, "SEL"),
+        true,
+        BinaryNinja::Variable() });
+
+    for (size_t i = 3; i < typeTokens.size(); i++) {
         std::string suffix;
-        auto part = partForIndex(i);
 
-        // The underscore being used as the function name here is critically
-        // important as Clang will not parse the type string correctly---unlike
-        // the old type parser---if there is no function name. The underscore
-        // itself isn't special, and will not end up being used as the function
-        // name in either case.
-        if (i == 0)
-            suffix = " _(";
-        else if (i == typeTokens.size() - 1)
-            suffix = ")";
-        else
-            suffix = ", ";
-
-        typeString += part + suffix;
+        params.push_back({ selectorTokens.size() > i - 3 ? selectorTokens[i - 3] : "arg",
+            typeForQualifiedNameOrType(typeTokens[i]),
+            true,
+            BinaryNinja::Variable() });
     }
-    typeString += ";";
 
-    std::string errors;
-    TypeParserResult tpResult;
-    auto ok = bv->ParseTypesFromSource(typeString, {}, {}, tpResult, errors);
-    if (ok && !tpResult.functions.empty()) {
-        auto functionType = tpResult.functions[0].type;
+    auto funcType = BinaryNinja::Type::FunctionType(retType, cc, params);
 
-        // Search for the method's implementation function; apply the type if found.
-        if (auto f = bv->GetAnalysisFunction(bv->GetDefaultPlatform(), mi.implAddress))
-            f->SetUserType(functionType);
-    }
+    // Search for the method's implementation function; apply the type if found.
+    auto f = bv->GetAnalysisFunction(bv->GetDefaultPlatform(), mi.implAddress);
+    if (f)
+        f->SetUserType(funcType);
+    else
+        BNLogError("Processing Type for function at %llx failed", mi.implAddress);
 
     std::string prefix = ci.isMetaClass ? "+" : "-";
 
@@ -148,37 +147,33 @@ void InfoHandler::applyMethodType(BinaryViewRef bv, const ObjectiveNinja::ClassI
 QualifiedName InfoHandler::createClassType(BinaryViewRef bv, const ObjectiveNinja::ClassInfo& info, const ObjectiveNinja::IvarListInfo& vi)
 {
     StructureBuilder classTypeBuilder;
-    for (const auto& ivar : vi.ivars)
-    {
-        auto encodedType = ivar.decodedTypeToken();
-        if (encodedType.empty())
+    for (const auto& ivar : vi.ivars) {
+        ObjectiveNinja::QualifiedNameOrType encodedType = ivar.decodedTypeToken();
+        Ref<Type> type;
+
+        if (encodedType.type)
+            type = encodedType.type;
+        else
         {
-            BinaryNinja::LogWarn("Failed to process ivar type %s", ivar.type.c_str());
-            encodedType = "void *";
+            type = Type::NamedType(encodedType.name, Type::PointerType(bv->GetAddressSize(), Type::VoidType()));
+            for (size_t i = encodedType.ptrCount; i > 0; i--)
+                type = Type::PointerType(8, type);
         }
-        std::string errors;
-        TypeParserResult tpResult;
-        auto ok = bv->ParseTypesFromSource(encodedType + " _;", {}, {}, tpResult, errors);
-        if (ok && !tpResult.variables.empty())
-        {
-            classTypeBuilder.AddMemberAtOffset(tpResult.variables[0].type, ivar.name, ivar.offset);
-        }
+
+        if (!type)
+            type = Type::PointerType(bv->GetAddressSize(), Type::VoidType());
+
+        classTypeBuilder.AddMemberAtOffset(type, ivar.name, ivar.offset);
     }
+
     auto classTypeStruct = classTypeBuilder.Finalize();
     QualifiedName classTypeName = "class_" + std::string(info.name);
     std::string classTypeId = Type::GenerateAutoTypeId("objc", classTypeName);
     Ref<Type> classType = Type::StructureType(classTypeStruct);
     QualifiedName classQualName = bv->DefineType(classTypeId, classTypeName, classType);
 
-    std::string typeDefType = "typedef struct " + classTypeName.GetString() + "* " + info.name + ";";
-    std::string errors;
-    TypeParserResult tpResult;
-    auto ok = bv->ParseTypesFromSource(typeDefType, {}, {}, tpResult, errors);
-    if (ok)
-        bv->DefineUserType(info.name, tpResult.types[0].type);
-    else {
-        return CustomTypes::ID;
-    }
+    std::string typeID = Type::GenerateAutoTypeId("objc", info.name);
+    bv->DefineType(typeID, info.name, Type::PointerType(bv->GetAddressSize(), Type::NamedType(bv, classTypeName)));
 
     return info.name;
 }
@@ -280,8 +275,7 @@ void InfoHandler::applyInfoToView(SharedAnalysisInfo info, BinaryViewRef bv)
                 defineSymbol(bv, ii.address, ii.name, "iv_");
             }
         }
-        if (ci.metaClassInfo)
-        {
+        if (ci.metaClassInfo) {
             for (const auto& mi : ci.metaClassInfo->info.methodList.methods) {
                 ++totalMethods;
 

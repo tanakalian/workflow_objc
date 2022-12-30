@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "TypeParser.h"
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -58,7 +59,7 @@ struct MethodInfo {
     /**
      * Get the method's type as series of C-style tokens.
      */
-    std::vector<std::string> decodedTypeTokens() const;
+    std::vector<QualifiedNameOrType> decodedTypeTokens() const;
 };
 
 /**
@@ -85,8 +86,7 @@ struct MetaClassInfo;
 /**
  * A description of an Objective-C instance variable (ivar).
  */
-struct IvarInfo
-{
+struct IvarInfo {
     uint64_t address = {};
 
     uint32_t offset;
@@ -101,7 +101,7 @@ struct IvarInfo
     /**
      * Get the instance variable's type as a C-style token.
      */
-    std::string decodedTypeToken() const;
+    QualifiedNameOrType decodedTypeToken() const;
 };
 
 /**

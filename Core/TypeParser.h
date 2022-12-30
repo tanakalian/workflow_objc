@@ -7,10 +7,17 @@
 
 #pragma once
 
+#include <binaryninjaapi.h>
 #include <string>
 #include <vector>
 
 namespace ObjectiveNinja {
+
+struct QualifiedNameOrType {
+    BinaryNinja::Ref<BinaryNinja::Type> type = nullptr;
+    BinaryNinja::QualifiedName name;
+    size_t ptrCount = 0;
+};
 
 /**
  * Parser for Objective-C type strings.
@@ -20,7 +27,7 @@ public:
     /**
      * Parse an encoded type string.
      */
-    static std::vector<std::string> parseEncodedType(const std::string&);
+    static std::vector<QualifiedNameOrType> parseEncodedType(const std::string&);
 };
 
 }

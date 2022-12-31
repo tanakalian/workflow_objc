@@ -40,6 +40,13 @@ class Workflow {
      */
     static void rewriteMethodCall(LLILFunctionRef, size_t insnIndex);
 
+    /**
+     * Rewrite a CFString reference to a direct string reference and matching CFSTR intrinsic call.
+     *
+     * @param insnIndex The index of the `LLIL_CALL` instruction to rewrite
+     */
+    static void rewriteCFString(LLILFunctionRef, size_t insnIndex);
+
 public:
     /**
      * Attempt to inline all `objc_msgSend` calls in the given analysis context.

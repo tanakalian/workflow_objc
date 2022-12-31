@@ -12,6 +12,7 @@
 #include "GlobalState.h"
 #include "InfoHandler.h"
 #include "Performance.h"
+#include "ArchitectureHooks.h"
 
 #include "Core/AnalysisProvider.h"
 #include "Core/BinaryViewFile.h"
@@ -119,6 +120,31 @@ void Workflow::rewriteMethodCall(LLILFunctionRef ssa, size_t insnIndex)
     llil->GenerateSSAForm();
 }
 
+void Workflow::rewriteCFString(LLILFunctionRef ssa, size_t insnIndex)
+{
+    const auto bv = ssa->GetFunction()->GetView();
+    const auto llil = ssa->GetNonSSAForm();
+    const auto insn = ssa->GetInstruction(insnIndex);
+    const auto llilIndex = ssa->GetNonSSAInstructionIndex(insnIndex);
+    auto llilInsn = llil->GetInstruction(llilIndex);
+
+    auto sourceExpr = insn.GetSourceExpr<LLIL_SET_REG_SSA>();
+    auto destRegister = llilInsn.GetDestRegister();
+
+    auto addr = sourceExpr.GetValue().value;
+    auto stringPointer = addr + 0x10;
+    uint64_t dest;
+    bv->Read(&dest, stringPointer, bv->GetDefaultArchitecture()->GetAddressSize());
+
+    auto targetPointer = llil->ConstPointer(bv->GetAddressSize(), dest, llilInsn);
+    auto cfstrCall = llil->Intrinsic({ BinaryNinja::RegisterOrFlag(0, destRegister) }, CFSTRIntrinsicIndex, {targetPointer}, 0, llilInsn);
+
+    llilInsn.Replace(cfstrCall);
+
+    llil->GenerateSSAForm();
+    llil->Finalize();
+}
+
 void Workflow::inlineMethodCalls(AnalysisContextRef ac)
 {
     const auto func = ac->GetFunction();
@@ -159,6 +185,8 @@ void Workflow::inlineMethodCalls(AnalysisContextRef ac)
         if (!GlobalState::hasAnalysisInfo(bv)) {
             SharedAnalysisInfo info;
             CustomTypes::defineAll(bv);
+            CFStringArchitectureHook* currentHook = new CFStringArchitectureHook(bv->GetDefaultArchitecture());
+            bv->GetDefaultArchitecture()->Register(currentHook);
 
             try {
                 auto file = std::make_shared<ObjectiveNinja::BinaryViewFile>(bv);
@@ -231,27 +259,37 @@ void Workflow::inlineMethodCalls(AnalysisContextRef ac)
         return;
     }
 
-    const auto rewriteIfEligible = [msgSendFunctions, ssa](size_t insnIndex) {
+    const auto rewriteIfEligible = [bv, msgSendFunctions, ssa](size_t insnIndex) {
         auto insn = ssa->GetInstruction(insnIndex);
 
-        if (insn.operation != LLIL_CALL_SSA)
-            return;
+        if (insn.operation == LLIL_CALL_SSA)
+        {
+            // Filter out calls that aren't to `objc_msgSend`.
+            auto callExpr = insn.GetDestExpr<LLIL_CALL_SSA>();
+            if (!msgSendFunctions.count(callExpr.GetValue().value))
+                return;
 
-        // Filter out calls that aren't to `objc_msgSend`.
-        auto callExpr = insn.GetDestExpr<LLIL_CALL_SSA>();
-        if (!msgSendFunctions.count(callExpr.GetValue().value))
-            return;
+            // By convention, the selector is the second argument to `objc_msgSend`,
+            // therefore two parameters are required for a proper rewrite; abort if
+            // this condition is not met.
+            auto params = insn.GetParameterExprs<LLIL_CALL_SSA>();
+            if (params.size() < 2
+                || params[0].operation != LLIL_REG_SSA
+                || params[1].operation != LLIL_REG_SSA)
+                return;
 
-        // By convention, the selector is the second argument to `objc_msgSend`,
-        // therefore two parameters are required for a proper rewrite; abort if
-        // this condition is not met.
-        auto params = insn.GetParameterExprs<LLIL_CALL_SSA>();
-        if (params.size() < 2
-            || params[0].operation != LLIL_REG_SSA
-            || params[1].operation != LLIL_REG_SSA)
-            return;
+            rewriteMethodCall(ssa, insnIndex);
+        }
+        else if (insn.operation == LLIL_SET_REG_SSA)
+        {
+            auto sourceExpr = insn.GetSourceExpr<LLIL_SET_REG_SSA>();
+            auto addr = sourceExpr.GetValue().value;
+            BinaryNinja::DataVariable var;
+            if (!bv->GetDataVariableAtAddress(addr, var) || var.type->GetString() != "struct CFString")
+                return;
 
-        rewriteMethodCall(ssa, insnIndex);
+            rewriteCFString(ssa, insnIndex);
+        }
     };
 
     for (const auto& block : ssa->GetBasicBlocks())

@@ -34,6 +34,8 @@ set(PLUGIN_SOURCE
   Core/AnalysisProvider.cpp
   Core/Analyzer.cpp
   Core/TypeParser.cpp
+  ArchitectureHooks.cpp
+  ArchitectureHooks.h
   Commands.h
   Commands.cpp
   CustomTypes.h

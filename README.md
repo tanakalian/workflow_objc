@@ -43,7 +43,7 @@ by [@jonpalmisc](https://twitter.com/jonpalmisc). The full terms of the
 Objective Ninja license are as follows:
 
 ```
-Copyright (c) 2022 Jon Palmisciano
+Copyright (c) 2022-2023 Jon Palmisciano
 
 Redistribution and use in source and binary forms, with or without modification,
 are permitted provided that the following conditions are met:

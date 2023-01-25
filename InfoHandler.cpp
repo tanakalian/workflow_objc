@@ -317,6 +317,20 @@ void InfoHandler::applyInfoToView(SharedAnalysisInfo info, BinaryViewRef bv)
             defineSymbol(bv, superRef.address, localClass->second, "su_");
     }
 
+    if (auto ivarSection = bv->GetSectionByName("__objc_ivar")) {
+        uint64_t addr = ivarSection->GetStart();
+        uint64_t end = addr + ivarSection->GetLength();
+
+        auto ivarSectionEntryTypeBuilder = new TypeBuilder(Type::IntegerType(8, false));
+        ivarSectionEntryTypeBuilder->SetConst(true);
+        auto ivarSectionEntryType = ivarSectionEntryTypeBuilder->Finalize();
+
+        while (addr < end) {
+            defineVariable(bv, addr, ivarSectionEntryType);
+            addr += 8;
+        }
+    }
+
     bv->CommitUndoActions();
     bv->UpdateAnalysis();
 

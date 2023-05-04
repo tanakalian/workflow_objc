@@ -78,8 +78,9 @@ IvarListInfo ClassAnalyzer::analyzeIvarList(uint64_t address)
         ii.typeAddress = arp(m_file->readLong());
         m_file->readInt();
         ii.size = m_file->readInt();
-
-        ii.offset = m_file->readInt(ii.offsetAddress);
+        
+        if (ii.offsetAddress != 0)
+            ii.offset = m_file->readInt(ii.offsetAddress);
         ii.name = m_file->readStringAt(ii.nameAddress);
         ii.type = m_file->readStringAt(ii.typeAddress);
 
